@@ -19,6 +19,8 @@ import UIKit
  */
 class DemoKeyboardActionHandler: StandardKeyboardActionHandler {
     
+    private let notificationName = Notification.Name("AirTurnReplacementKeyboardDismissNotification")
+    
     public init(inputViewController: KeyboardInputViewController) {
         super.init(inputViewController: inputViewController)
     }
@@ -30,7 +32,11 @@ class DemoKeyboardActionHandler: StandardKeyboardActionHandler {
         let standard = super.action(for: gesture, on: action)
         switch gesture {
         case .longPress: return longPressAction(for: action) ?? standard
-        case .tap: return tapAction(for: action) ?? standard
+        case .tap:
+            if action == .dismissKeyboard {
+                NotificationCenter.default.post(name: notificationName, object: nil)
+            }
+            return tapAction(for: action) ?? standard
         default: return standard
         }
     }
