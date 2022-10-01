@@ -13,7 +13,7 @@ import SwiftUI
  This demo-specific toolbar applies a fixed height, to avoid
  resizing when it gets suggestions and when it's empty.
  */
-struct DemoAutocompleteToolbar: View {
+struct AutocompleteToolbar: View {
     
     @EnvironmentObject private var context: AutocompleteContext
     @EnvironmentObject private var keyboardContext: KeyboardContext
@@ -26,7 +26,7 @@ struct DemoAutocompleteToolbar: View {
     }
 }
 
-private extension DemoAutocompleteToolbar {
+private extension AutocompleteToolbar {
     
     var isPad: Bool {
         UIDevice.current.userInterfaceIdiom == .pad
@@ -36,6 +36,6 @@ private extension DemoAutocompleteToolbar {
 struct DemoAutocompleteToolbar_Previews: PreviewProvider {
     
     static var previews: some View {
-        DemoAutocompleteToolbar()
+        AutocompleteToolbar()
     }
 }

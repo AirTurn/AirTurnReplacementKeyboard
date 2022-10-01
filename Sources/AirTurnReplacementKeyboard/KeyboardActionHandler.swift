@@ -17,7 +17,7 @@ import UIKit
  to show you how to register a custom action handler and use
  it to customize how actions are handled by KeyboardKit.
  */
-class DemoKeyboardActionHandler: StandardKeyboardActionHandler {
+class KeyboardActionHandler: StandardKeyboardActionHandler {
     
     private let notificationName = Notification.Name("AirTurnReplacementKeyboardDismissNotification")
     
@@ -96,7 +96,7 @@ class DemoKeyboardActionHandler: StandardKeyboardActionHandler {
     }
 }
 
-private extension DemoKeyboardActionHandler {
+private extension KeyboardActionHandler {
     
     func handleImageDidSave(WithError error: Error?) {
         if error == nil { alert("Saved!") }

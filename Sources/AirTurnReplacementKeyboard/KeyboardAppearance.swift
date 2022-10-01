@@ -13,7 +13,7 @@ import SwiftUI
  This demo-specific appearance inherits the standard one and
  can be used to easily customize the demo keyboard.
  */
-class DemoKeyboardAppearance: StandardKeyboardAppearance {
+class KeyboardAppearance: StandardKeyboardAppearance {
     
     override func actionCalloutStyle() -> ActionCalloutStyle {
         let style = super.actionCalloutStyle()

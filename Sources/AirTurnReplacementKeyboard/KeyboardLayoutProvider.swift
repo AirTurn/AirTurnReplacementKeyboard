@@ -12,7 +12,7 @@ import KeyboardKit
  This layout provider adds a locale picker next to space, if
  KeyboardKit is setup with more than a single locale.
  */
-class DemoKeyboardLayoutProvider: StandardKeyboardLayoutProvider {
+class KeyboardLayoutProvider: StandardKeyboardLayoutProvider {
     
     override func keyboardLayout(for context: KeyboardContext) -> KeyboardLayout {
         let layout = super.keyboardLayout(for: context)

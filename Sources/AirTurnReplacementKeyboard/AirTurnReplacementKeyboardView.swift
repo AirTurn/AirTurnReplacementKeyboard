@@ -20,7 +20,7 @@ import SwiftUI
  when the context changes. This is not how it should be, but
  I have not yet figured out why this is needed.
  */
-struct KeyboardView: View {
+struct AirTurnReplacementKeyboardView: View {
     
     @State
     private var text = "Text"
@@ -31,7 +31,7 @@ struct KeyboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             if context.keyboardType != .emojis {
-                DemoAutocompleteToolbar()
+                AutocompleteToolbar()
             }
             SystemKeyboard()
         }
@@ -41,7 +41,7 @@ struct KeyboardView: View {
 
 // MARK: - Private Views
 
-private extension KeyboardView {
+private extension AirTurnReplacementKeyboardView {
 
     /// This text field can be added to the VStack above, to
     /// test typing in a text field within the keyboard view.
