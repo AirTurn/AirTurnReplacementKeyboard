@@ -17,6 +17,10 @@ let package = Package(
         .library(
             name: "AirTurnReplacementKeyboard",
             targets: ["AirTurnReplacementKeyboard"]),
+        .library(
+            name: "AirTurnReplacementKeyboard-dynamic",
+            type: .dynamic,
+            targets: ["AirTurnReplacementKeyboard"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
