@@ -31,7 +31,7 @@ struct AirTurnReplacementKeyboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             if context.keyboardType != .emojis {
-                AutocompleteToolbar()
+                KeyboardAutocompleteToolbar()
             }
             SystemKeyboard()
         }
