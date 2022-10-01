@@ -16,11 +16,13 @@ let package = Package(
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "AirTurnReplacementKeyboard",
-            targets: ["AirTurnReplacementKeyboard"]),
+            targets: ["AirTurnReplacementKeyboard"]
+        ),
         .library(
-            name: "AirTurnReplacementKeyboard-dynamic",
+            name: "AirTurnReplacementKeyboardDynamic",
             type: .dynamic,
-            targets: ["AirTurnReplacementKeyboard"]),
+            targets: ["AirTurnReplacementKeyboard"]
+        ),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
