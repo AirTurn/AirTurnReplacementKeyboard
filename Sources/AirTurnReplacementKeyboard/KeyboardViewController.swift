@@ -26,7 +26,7 @@ import SwiftUI
  is done to make it possible to change the package from this
  project and make it easier to quickly try out new things.
  */
-public class AirTurnReplacementKeyboardViewController: KeyboardInputViewController {
+@objc(AirTurnReplacementKeyboardViewController) public class AirTurnReplacementKeyboardViewController: KeyboardInputViewController {
     
     /**
      Here, we register demo-specific services which are then
