@@ -1,12 +1,12 @@
 {
   "pins" : [
     {
-      "identity" : "keyboardkit",
+      "identity" : "keyboardkitpro",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/KeyboardKit/KeyboardKit",
+      "location" : "https://github.com/KeyboardKit/KeyboardKitPro.git",
       "state" : {
         "branch" : "master",
-        "revision" : "6aefc7be096edef8b523fcf0a424dba841e44d67"
+        "revision" : "9c195c2682c52a3e19b2a38cad262ea4b0daa3a8"
       }
     }
   ],

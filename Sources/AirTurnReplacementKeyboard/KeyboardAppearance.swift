@@ -6,7 +6,7 @@
 //  Copyright © 2021 Daniel Saidi. All rights reserved.
 //
 
-import KeyboardKit
+import KeyboardKitPro
 import SwiftUI
 
 /**
@@ -14,32 +14,26 @@ import SwiftUI
  can be used to easily customize the demo keyboard.
  */
 class KeyboardAppearance: StandardKeyboardAppearance {
-    
-    override func actionCalloutStyle() -> ActionCalloutStyle {
-        let style = super.actionCalloutStyle()
-        // style.callout.backgroundColor = .red
-        return style
-    }
-    
     override func buttonImage(for action: KeyboardAction) -> Image? {
-        super.buttonImage(for: action)
+        if action == .custom(named: "dismiss") {
+            return super.buttonImage(for: .dismissKeyboard)
+        }
+        return super.buttonImage(for: action)
     }
     
     override func buttonStyle(
         for action: KeyboardAction,
         isPressed: Bool) -> KeyboardButtonStyle {
-        let style = super.buttonStyle(for: action, isPressed: isPressed)
-        // style.cornerRadius = 10
-        return style
+        if action == .custom(named: "dismiss") {
+            return super.buttonStyle(for: .dismissKeyboard, isPressed: false)
+        }
+        return super.buttonStyle(for: action, isPressed: isPressed)
     }
     
     override func buttonText(for action: KeyboardAction) -> String? {
-        super.buttonText(for: action)
-    }
-    
-    override func inputCalloutStyle() -> InputCalloutStyle {
-        let style = super.inputCalloutStyle()
-        // style.callout.backgroundColor = .red
-        return style
+        if action == .custom(named: "dismiss") {
+            return super.buttonText(for: .dismissKeyboard)
+        }
+        return super.buttonText(for: action)
     }
 }

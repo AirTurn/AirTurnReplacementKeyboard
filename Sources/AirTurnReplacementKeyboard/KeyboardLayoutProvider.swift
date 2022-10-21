@@ -6,7 +6,7 @@
 //  Copyright © 2021 Daniel Saidi. All rights reserved.
 //
 
-import KeyboardKit
+import KeyboardKitPro
 
 /**
  This layout provider adds a locale picker next to space, if
@@ -22,6 +22,13 @@ class KeyboardLayoutProvider: StandardKeyboardLayoutProvider {
         guard let system = (rows[rowIndex].first { $0.action.isSystemAction }) else { return layout }
         let switcher = KeyboardLayoutItem(action: .nextLocale, size: system.size, insets: system.insets)
         rows.insert(switcher, after: .space, atRow: rowIndex)
+
+        let dismiss = (rows[rowIndex].first { $0.action == .dismissKeyboard })
+        if dismiss != nil {
+            let newDismiss = KeyboardLayoutItem(action: .custom(named: "dismiss"), size: system.size, insets: system.insets)
+            rows.replace(dismiss!, with: newDismiss, atRow: rowIndex)
+        }
+        
         return KeyboardLayout(itemRows: rows)
     }
 }

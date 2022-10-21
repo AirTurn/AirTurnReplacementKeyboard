@@ -6,8 +6,9 @@
 //  Copyright © 2021 Daniel Saidi. All rights reserved.
 //
 
-import KeyboardKit
+import KeyboardKitPro
 import SwiftUI
+import Combine
 
 /**
  This keyboard demonstrates how to create a keyboard that is
@@ -28,29 +29,74 @@ import SwiftUI
  */
 @objc(AirTurnReplacementKeyboardViewController) public class AirTurnReplacementKeyboardViewController: KeyboardInputViewController {
     
+    private let userDefaultsCurrentLocaleKey = "com.airturn.AirTurnReplacementKeyboard.currentLocale"
+    
+    @objc(keyboardLocale) public var keyboardLocale: Locale = KeyboardLocale.english_us.locale {
+        didSet {
+            keyboardContext.locale = keyboardLocale
+        }
+    }
+    
+    @objc(keyboardKitProLicenseKey) public static var keyboardKitProLicenseKey: String?
+
+    /**
+      This function returns an array with all locales currently supported by KeyboardKitPro
+     */
+    @objc(allKeyboardKitLocales) public static var allKeyboardKitLocales: [Locale] {
+        KeyboardLocale.allCases.map { $0.locale }
+    }
+
+    /**
+      This function returns an array with the locales currently configured in device keyboard settings, that are also available in KeyboardKitPro.
+      If none of the configured locales is available in KeyboardKitPro, an array with an english keyboard is returned.
+      The returned array contains at least one entry.
+     */
+    private static var cachedLocales: [Locale] = []
+    private static var cachedInputModes: [UITextInputMode] = []
+    @objc(configuredKeyboardKitLocales) public static var configuredKeyboardKitLocales: [Locale] {
+        guard UITextInputMode.activeInputModes != cachedInputModes else { return cachedLocales }
+        let allKKLocales = allKeyboardKitLocales
+        var seen = Set<Locale>()
+        let locales: [Locale] = UITextInputMode.activeInputModes.compactMap({ inputMode -> Locale? in
+            guard let localeIdentifier = inputMode.primaryLanguage?.replacingOccurrences(of: "-", with: "_") else {
+                return nil
+            }
+            var found = allKKLocales.first(where: { $0.identifier == localeIdentifier })
+            if found == nil, let index = localeIdentifier.firstIndex(of: "_") {
+                let shortIdentifier = localeIdentifier.prefix(upTo: index)
+                found = allKKLocales.first(where: { $0.identifier == shortIdentifier })
+            }
+            // deduplicate while maintaining order
+            guard let found = found, seen.insert(found).inserted else { return nil }
+            return found
+        })
+        cachedInputModes = UITextInputMode.activeInputModes
+        cachedLocales = locales.count == 0 ? [KeyboardLocale.english.locale] : locales
+        return cachedLocales
+    }
+    
+    func updateLocales() {
+        let locales = Self.configuredKeyboardKitLocales
+        keyboardContext.locales = locales
+        if !locales.contains(keyboardContext.locale) {
+            keyboardContext.locale = locales.first!
+        }
+    }
+    
     /**
      Here, we register demo-specific services which are then
      used by the keyboard.
      */
+    private var currentLocaleCancellable: AnyCancellable?
     public override func viewDidLoad() {
         
         view.translatesAutoresizingMaskIntoConstraints = false
 
-        // Setup an custom input set provider.
-        // 💡 Have a look at the other demo projects, where this is done.
-        // inputSetProvider = ...
-        
-        // Setup a demo-specific keyboard appearance.
-        // 💡 You can change this appearance to see how the keyboard style changes.
         keyboardAppearance = KeyboardAppearance(context: keyboardContext)
         
-        // Setup a demo-specific keyboard action handler.
-        // 💡 You can change this handler to see how the keyboard behavior changes.
         keyboardActionHandler = KeyboardActionHandler(
             inputViewController: self)
         
-        // Setup a demo-specific keyboard layout provider.
-        // 💡 You can change this provider to see how the keyboard layout changes.
         keyboardLayoutProvider = KeyboardLayoutProvider(
             inputSetProvider: inputSetProvider,
             dictationReplacement: nil)
@@ -70,7 +116,20 @@ import SwiftUI
     public override func viewWillSetupKeyboard() {
         super.viewWillSetupKeyboard()
         
-        // Setup the demo with demo-specific keyboard view.
-        setup(with: AirTurnReplacementKeyboardView())
+        let view = AirTurnReplacementKeyboardView()
+        
+        if let key = Self.keyboardKitProLicenseKey {
+            try? setupPro(withLicenseKey: key, view: view)
+        } else {
+            setup(with: view)
+        }
+        
+        currentLocaleCancellable?.cancel()
+        updateLocales()
+        if let currentLocale = UserDefaults.standard.string(forKey: userDefaultsCurrentLocaleKey), let locale = keyboardContext.locales.first(where: { $0.identifier == currentLocale }) {
+            keyboardContext.locale = locale
+        }
+        
+        currentLocaleCancellable = keyboardContext.$locale.sink(receiveValue: { UserDefaults.standard.set($0.identifier, forKey: self.userDefaultsCurrentLocaleKey) })
     }
 }

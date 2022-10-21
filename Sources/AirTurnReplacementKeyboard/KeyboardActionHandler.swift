@@ -6,7 +6,7 @@
 //  Copyright © 2021 Daniel Saidi. All rights reserved.
 //
 
-import KeyboardKit
+import KeyboardKitPro
 import UIKit
 
 /**
@@ -19,22 +19,31 @@ import UIKit
  */
 class KeyboardActionHandler: StandardKeyboardActionHandler {
     
-    private let notificationName = Notification.Name("AirTurnReplacementKeyboardDismissNotification")
+    private let dismissNotification = Notification.Name("AirTurnReplacementKeyboardDismissNotification")
+    private let nextLocaleNotification = Notification.Name("AirTurnReplacementKeyboardNextLocaleNotification")
     
-    public init(inputViewController: KeyboardInputViewController) {
+    private let ivc: AirTurnReplacementKeyboardViewController
+    
+    public init(inputViewController: AirTurnReplacementKeyboardViewController) {
+        ivc = inputViewController
         super.init(inputViewController: inputViewController)
     }
     
+    private func postNotification(name: Notification.Name) {
+        NotificationCenter.default.post(name: name, object: nil)
+    }
     
     // MARK: - Overrides
-    
     override func action(for gesture: KeyboardGesture, on action: KeyboardAction) -> KeyboardAction.GestureAction? {
         let standard = super.action(for: gesture, on: action)
         switch gesture {
         case .longPress: return longPressAction(for: action) ?? standard
         case .tap:
-            if action == .dismissKeyboard {
-                NotificationCenter.default.post(name: notificationName, object: nil)
+            if action == .nextLocale {
+                ivc.updateLocales()
+            } else if action == .custom(named: "dismiss") {
+                postNotification(name: dismissNotification)
+                return nil
             }
             return tapAction(for: action) ?? standard
         default: return standard
