@@ -22,6 +22,9 @@ class KeyboardLayoutProvider: StandardKeyboardLayoutProvider {
         guard let system = (rows[rowIndex].first { $0.action.isSystemAction }) else { return layout }
 
         let newGlobe = KeyboardLayoutItem(action: .nextLocale, size: system.size, insets: system.insets)
+        if let globe = (rows[rowIndex].first { $0.action == .nextKeyboard }) {
+            rows.remove(globe)
+        }
         rows.insert(newGlobe, before: .space, atRow: rowIndex)
 
         let dismiss = (rows[rowIndex].first { $0.action == .dismissKeyboard })
