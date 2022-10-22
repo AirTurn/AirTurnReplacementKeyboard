@@ -23,16 +23,33 @@ let package = Package(
             type: .dynamic,
             targets: ["AirTurnReplacementKeyboard"]
         ),
+        .library(
+            name: "AirTurnReplacementKeyboardStandard",
+            targets: ["AirTurnReplacementKeyboardStandard"]
+        ),
+        .library(
+            name: "AirTurnReplacementKeyboardStandardDynamic",
+            type: .dynamic,
+            targets: ["AirTurnReplacementKeyboardStandard"]
+        ),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
          .package(url: "https://github.com/KeyboardKit/KeyboardKitPro.git", branch: "master"),
+         .package(url: "https://github.com/KeyboardKit/KeyboardKit.git", branch: "master"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "AirTurnReplacementKeyboard",
-            dependencies: ["KeyboardKitPro"]),
+            dependencies: ["KeyboardKitPro"],
+            swiftSettings: [.define("ATRK_PRO")]
+        ),
+        .target(
+            name: "AirTurnReplacementKeyboardStandard",
+            dependencies: ["KeyboardKit"],
+            swiftSettings: [.define("ATRK_STANDARD")]
+        )
     ]
 )

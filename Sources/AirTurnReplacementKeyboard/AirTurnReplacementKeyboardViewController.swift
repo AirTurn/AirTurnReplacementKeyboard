@@ -6,7 +6,11 @@
 //  Copyright © 2021 Daniel Saidi. All rights reserved.
 //
 
+#if ATRK_STANDARD
+import KeyboardKit
+#else
 import KeyboardKitPro
+#endif
 import SwiftUI
 import Combine
 
@@ -37,8 +41,11 @@ import Combine
         }
     }
     
+#if ATRK_PRO
+    /// Set your KeyboardKitPro license key to this property to enable KeyboardKitPro functionality. Leave nil for KeyboardKit standard.
     @objc(keyboardKitProLicenseKey) public static var keyboardKitProLicenseKey: String?
-
+#endif
+    
     /**
       This function returns an array with all locales currently supported by KeyboardKitPro
      */
@@ -118,11 +125,16 @@ import Combine
         
         let view = AirTurnReplacementKeyboardView()
         
+#if ATRK_STANDARD
+        setup(with: view)
+#else
         if let key = Self.keyboardKitProLicenseKey {
             try? setupPro(withLicenseKey: key, view: view)
         } else {
             setup(with: view)
         }
+#endif
+        
         
         currentLocaleCancellable?.cancel()
         updateLocales()

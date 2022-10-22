@@ -6,7 +6,11 @@
 //  Copyright © 2021 Daniel Saidi. All rights reserved.
 //
 
+#if ATRK_STANDARD
+import KeyboardKit
+#else
 import KeyboardKitPro
+#endif
 import SwiftUI
 
 /**
