@@ -35,6 +35,17 @@ import Combine
     
     private let userDefaultsCurrentLocaleKey = "com.airturn.AirTurnReplacementKeyboard.currentLocale"
     
+    private let kbView = AirTurnReplacementKeyboardView()
+    
+    @objc(enableAutoCorrect) public var enableAutoCorrect: Bool {
+        set {
+            kbView.enableAutoCorrect = newValue
+        }
+        get {
+            kbView.enableAutoCorrect
+        }
+    }
+    
     @objc(keyboardLocale) public var keyboardLocale: Locale = KeyboardLocale.english_us.locale {
         didSet {
             keyboardContext.locale = keyboardLocale

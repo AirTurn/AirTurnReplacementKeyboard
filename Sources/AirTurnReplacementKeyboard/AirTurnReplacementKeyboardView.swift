@@ -29,12 +29,15 @@ struct AirTurnReplacementKeyboardView: View {
     @State
     private var text = "Text"
     
+    @State
+    var enableAutoCorrect = true
+    
     @EnvironmentObject
     private var context: KeyboardContext
     
     var body: some View {
         VStack(spacing: 0) {
-            if context.keyboardType != .emojis {
+            if enableAutoCorrect && context.keyboardType != .emojis {
                 KeyboardAutocompleteToolbar()
             }
             SystemKeyboard()
