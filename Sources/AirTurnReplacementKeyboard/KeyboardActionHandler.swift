@@ -39,19 +39,12 @@ class KeyboardActionHandler: StandardKeyboardActionHandler {
     
     // MARK: - Overrides
     override func action(for gesture: KeyboardGesture, on action: KeyboardAction) -> KeyboardAction.GestureAction? {
-        let standard = super.action(for: gesture, on: action)
         switch gesture {
-        case .longPress: return longPressAction(for: action) ?? standard
-        case .tap:
-            if action == .nextLocale {
-                ivc.updateLocales()
-            } else if action == .custom(named: "dismiss") {
-                postNotification(name: dismissNotification)
-                return nil
-            }
-            return tapAction(for: action) ?? standard
-        default: return standard
+        case .longPress: if let action = longPressAction(for: action) { return action }
+        case .tap: if let action = tapAction(for: action) { return action }
+        default: break
         }
+        return super.action(for: gesture, on: action)
     }
     
     override func handle(_ gesture: KeyboardGesture, on action: KeyboardAction) {
@@ -71,6 +64,13 @@ class KeyboardActionHandler: StandardKeyboardActionHandler {
     
     func tapAction(for action: KeyboardAction) -> KeyboardAction.GestureAction? {
         switch action {
+        case .nextLocale:  return { ivc in
+            (ivc as? AirTurnReplacementKeyboardViewController)?.updateLocales()
+        }
+        case .custom(named: "dismiss"):  return { [weak self] _ in
+            guard let self = self else { return }
+            self.postNotification(name: self.dismissNotification)
+        }
         case .image(_, _, let imageName): return { [weak self] _ in self?.copyImage(named: imageName) }
         default: return nil
         }
