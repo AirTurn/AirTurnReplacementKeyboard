@@ -46,60 +46,10 @@ import Combine
         }
     }
     
-    @objc(keyboardLocale) public var keyboardLocale: Locale = KeyboardLocale.english_us.locale {
-        didSet {
-            keyboardContext.locale = keyboardLocale
-        }
-    }
-    
 #if ATRK_PRO
     /// Set your KeyboardKitPro license key to this property to enable KeyboardKitPro functionality. Leave nil for KeyboardKit standard.
     @objc(keyboardKitProLicenseKey) public static var keyboardKitProLicenseKey: String?
 #endif
-    
-    /**
-      This function returns an array with all locales currently supported by KeyboardKitPro
-     */
-    @objc(allKeyboardKitLocales) public static var allKeyboardKitLocales: [Locale] {
-        KeyboardLocale.allCases.map { $0.locale }
-    }
-
-    /**
-      This function returns an array with the locales currently configured in device keyboard settings, that are also available in KeyboardKitPro.
-      If none of the configured locales is available in KeyboardKitPro, an array with an english keyboard is returned.
-      The returned array contains at least one entry.
-     */
-    private static var cachedLocales: [Locale] = []
-    private static var cachedInputModes: [UITextInputMode] = []
-    @objc(configuredKeyboardKitLocales) public static var configuredKeyboardKitLocales: [Locale] {
-        guard UITextInputMode.activeInputModes != cachedInputModes else { return cachedLocales }
-        let allKKLocales = allKeyboardKitLocales
-        var seen = Set<Locale>()
-        let locales: [Locale] = UITextInputMode.activeInputModes.compactMap({ inputMode -> Locale? in
-            guard let localeIdentifier = inputMode.primaryLanguage?.replacingOccurrences(of: "-", with: "_") else {
-                return nil
-            }
-            var found = allKKLocales.first(where: { $0.identifier == localeIdentifier })
-            if found == nil, let index = localeIdentifier.firstIndex(of: "_") {
-                let shortIdentifier = localeIdentifier.prefix(upTo: index)
-                found = allKKLocales.first(where: { $0.identifier == shortIdentifier })
-            }
-            // deduplicate while maintaining order
-            guard let found = found, seen.insert(found).inserted else { return nil }
-            return found
-        })
-        cachedInputModes = UITextInputMode.activeInputModes
-        cachedLocales = locales.count == 0 ? [KeyboardLocale.english.locale] : locales
-        return cachedLocales
-    }
-    
-    func updateLocales() {
-        let locales = Self.configuredKeyboardKitLocales
-        keyboardContext.locales = locales
-        if !locales.contains(keyboardContext.locale) {
-            keyboardContext.locale = locales.first!
-        }
-    }
     
     /**
      Here, we register demo-specific services which are then
@@ -148,7 +98,6 @@ import Combine
         
         
         currentLocaleCancellable?.cancel()
-        updateLocales()
         if let currentLocale = UserDefaults.standard.string(forKey: userDefaultsCurrentLocaleKey), let locale = keyboardContext.locales.first(where: { $0.identifier == currentLocale }) {
             keyboardContext.locale = locale
         }

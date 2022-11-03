@@ -64,9 +64,6 @@ class KeyboardActionHandler: StandardKeyboardActionHandler {
     
     func tapAction(for action: KeyboardAction) -> KeyboardAction.GestureAction? {
         switch action {
-        case .nextLocale:  return { ivc in
-            (ivc as? AirTurnReplacementKeyboardViewController)?.updateLocales()
-        }
         case .custom(named: "dismiss"):  return { [weak self] _ in
             guard let self = self else { return }
             self.postNotification(name: self.dismissNotification)
