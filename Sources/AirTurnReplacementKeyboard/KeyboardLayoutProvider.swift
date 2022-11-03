@@ -21,13 +21,15 @@ class KeyboardLayoutProvider: StandardKeyboardLayoutProvider {
     override func keyboardLayout(for context: KeyboardContext) -> KeyboardLayout {
         let layout = super.keyboardLayout(for: context)
         var rows = layout.itemRows
-        guard rows.count > 0, context.locales.count > 1 else { return layout }
+        guard rows.count > 0 else { return layout }
         let rowIndex = rows.count - 1
         guard let system = (rows[rowIndex].first { $0.action.isSystemAction }) else { return layout }
 
         rows[rowIndex].removeAll(where: { $0.action == .nextKeyboard })
-        let newGlobe = KeyboardLayoutItem(action: .nextLocale, size: system.size, insets: system.insets)
-        rows.insert(newGlobe, before: .space, atRow: rowIndex)
+        if context.locales.count > 1 {
+            let newGlobe = KeyboardLayoutItem(action: .nextLocale, size: system.size, insets: system.insets)
+            rows.insert(newGlobe, before: .space, atRow: rowIndex)
+        }
 
         let dismiss = (rows[rowIndex].first { $0.action == .dismissKeyboard })
         if dismiss != nil {

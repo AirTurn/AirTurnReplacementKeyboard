@@ -66,6 +66,7 @@ class KeyboardActionHandler: StandardKeyboardActionHandler {
         switch action {
         case .nextLocale:  return { ivc in
             (ivc as? AirTurnReplacementKeyboardViewController)?.updateLocales()
+            self.keyboardContext.selectNextLocale()
         }
         case .custom(named: "dismiss"):  return { [weak self] _ in
             guard let self = self else { return }
