@@ -35,8 +35,8 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-         .package(url: "https://github.com/KeyboardKit/KeyboardKitPro.git", branch: "master"),
-         .package(url: "https://github.com/KeyboardKit/KeyboardKit.git", branch: "master"),
+        .package(url: "https://github.com/KeyboardKit/KeyboardKitPro.git", "6.5.0"..<"6.6.0"),
+        .package(url: "https://github.com/KeyboardKit/KeyboardKit.git", "6.5.0"..<"6.6.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.

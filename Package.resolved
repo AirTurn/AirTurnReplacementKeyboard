@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KeyboardKit/KeyboardKit.git",
       "state" : {
-        "branch" : "master",
-        "revision" : "80bfa8e7d2c173dfb0056b227d128ff81d2dd2d3"
+        "revision" : "80bfa8e7d2c173dfb0056b227d128ff81d2dd2d3",
+        "version" : "6.5.2"
       }
     },
     {
@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KeyboardKit/KeyboardKitPro.git",
       "state" : {
-        "branch" : "master",
-        "revision" : "93cb9cabc164522eb9aee639b6babdf68a2acc61"
+        "revision" : "e6dad1e50c3c0fda66ac8c6eecabeabb66169d1b",
+        "version" : "6.5.2"
       }
     }
   ],
