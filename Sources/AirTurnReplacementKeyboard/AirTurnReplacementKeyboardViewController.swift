@@ -35,16 +35,15 @@ import Combine
     
     private let userDefaultsCurrentLocaleKey = "com.airturn.AirTurnReplacementKeyboard.currentLocale"
     
-    private let kbView = AirTurnReplacementKeyboardView()
-    
-    @objc(enableAutoCorrect) public var enableAutoCorrect: Bool {
-        set {
-            kbView.enableAutoCorrect = newValue
-        }
-        get {
-            kbView.enableAutoCorrect
+    @objc(enableAutoCorrect) public var enableAutoCorrect: Bool = false {
+        didSet {
+            keyboardViewParameters.enableAutoCorrect = enableAutoCorrect
         }
     }
+    
+    private let keyboardViewParameters = AirTurnReplacementKeyboardViewParameters()
+    
+    private lazy var keyboardView: AirTurnReplacementKeyboardView = { AirTurnReplacementKeyboardView(parameters: keyboardViewParameters) }()
     
     @objc(keyboardLocale) public var keyboardLocale: Locale = KeyboardLocale.english_us.locale {
         didSet {
@@ -134,15 +133,13 @@ import Combine
     public override func viewWillSetupKeyboard() {
         super.viewWillSetupKeyboard()
         
-        let view = AirTurnReplacementKeyboardView()
-        
 #if ATRK_STANDARD
-        setup(with: view)
+        setup(with: keyboardView)
 #else
         if let key = Self.keyboardKitProLicenseKey {
-            try? setupPro(withLicenseKey: key, view: view)
+            try? setupPro(withLicenseKey: key, view: keyboardView)
         } else {
-            setup(with: view)
+            setup(with: keyboardView)
         }
 #endif
         

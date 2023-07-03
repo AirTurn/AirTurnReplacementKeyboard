@@ -13,6 +13,10 @@ import KeyboardKitPro
 #endif
 import SwiftUI
 
+class AirTurnReplacementKeyboardViewParameters: ObservableObject {
+    @Published var enableAutoCorrect = true
+}
+
 /**
  This is the main view that is registered when the extension
  runs `setup(with:)` in ``KeyboardViewController``. The view
@@ -29,15 +33,15 @@ struct AirTurnReplacementKeyboardView: View {
     @State
     private var text = "Text"
     
-    @State
-    var enableAutoCorrect = true
+    @ObservedObject
+    var parameters: AirTurnReplacementKeyboardViewParameters
     
     @EnvironmentObject
     private var context: KeyboardContext
     
     var body: some View {
         VStack(spacing: 0) {
-            if enableAutoCorrect && context.keyboardType != .emojis {
+            if parameters.enableAutoCorrect && context.keyboardType != .emojis {
                 KeyboardAutocompleteToolbar()
             }
             SystemKeyboard()
