@@ -3,14 +3,12 @@
 
 import PackageDescription
 
+#if !targetEnvironment(macCatalyst)
 let package = Package(
     name: "AirTurnReplacementKeyboard",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v13),
-        .macOS(.v11),
-        .tvOS(.v13),
-        .watchOS(.v6)
+        .iOS(.v13)
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
@@ -53,3 +51,4 @@ let package = Package(
         )
     ]
 )
+#endif
