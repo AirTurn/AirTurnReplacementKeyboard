@@ -1,66 +1,52 @@
-//
-//  KeyboardView.swift
-//  KeyboardKitDemo
-//
-//  Created by Daniel Saidi on 2020-06-10.
-//  Copyright © 2021 Daniel Saidi. All rights reserved.
-//
-
-#if ATRK_STANDARD
 import KeyboardKit
-#else
-import KeyboardKitPro
-#endif
 import SwiftUI
 
-class AirTurnReplacementKeyboardViewParameters: ObservableObject {
-    @Published var enableAutoCorrect = true
+@MainActor
+final class AirTurnReplacementKeyboardViewParameters: ObservableObject {
+    @Published var enableAutoCorrect = false
 }
 
-/**
- This is the main view that is registered when the extension
- runs `setup(with:)` in ``KeyboardViewController``. The view
- is used by all `SystemKeyboard`-based keyboards.
- 
- The view must observe a `KeyboardContext` as an environment
- object, or take a context instance as an init parameter and
- set it to an observed object. Otherwise, it will not change
- when the context changes. This is not how it should be, but
- I have not yet figured out why this is needed.
- */
+/// A thin wrapper around KeyboardKit's standard keyboard.
+///
+/// AirTurn displays this view inside the host application when iOS suppresses
+/// its software keyboard because an AirTurn pedal is connected as an external
+/// keyboard. Keeping the standard `KeyboardView` intact makes the replacement
+/// follow the current iOS keyboard layout and appearance as closely as
+/// KeyboardKit supports.
 struct AirTurnReplacementKeyboardView: View {
-    
-    @State
-    private var text = "Text"
-    
-    @ObservedObject
-    var parameters: AirTurnReplacementKeyboardViewParameters
-    
-    @EnvironmentObject
-    private var context: KeyboardContext
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            if parameters.enableAutoCorrect && context.keyboardType != .emojis {
-                KeyboardAutocompleteToolbar()
-            }
-            SystemKeyboard()
+    let services: KeyboardServices
+    let state: KeyboardState
+
+    @ObservedObject var parameters: AirTurnReplacementKeyboardViewParameters
+
+    private var layout: KeyboardLayout {
+        var layout = KeyboardLayout.standard(for: state.keyboardContext)
+
+        // This keyboard is embedded in the host app, so the system keyboard
+        // switcher is not useful. Reuse its position for locale switching when
+        // more than one configured locale is available.
+        if state.keyboardContext.locales.count > 1 {
+            layout.replace(.nextKeyboard, withAction: .nextLocale)
+        } else {
+            layout.remove(.nextKeyboard)
         }
+
+        return layout
     }
-}
 
-
-// MARK: - Private Views
-
-private extension AirTurnReplacementKeyboardView {
-
-    /// This text field can be added to the VStack above, to
-    /// test typing in a text field within the keyboard view.
-    var textField: some View {
-        KeyboardTextField(text: $text) {
-            $0.placeholder = "Try typing here, press return to stop."
-            $0.borderStyle = .roundedRect
-            $0.autocapitalizationType = .sentences
-        }.padding(3)
+    var body: some View {
+        KeyboardView(
+            layout: layout,
+            services: services,
+            buttonContent: { $0.view },
+            buttonView: { $0.view },
+            collapsedView: { $0.view },
+            emojiKeyboard: { $0.view },
+            toolbar: { parameters in
+                if self.parameters.enableAutoCorrect {
+                    parameters.view
+                }
+            }
+        )
     }
 }

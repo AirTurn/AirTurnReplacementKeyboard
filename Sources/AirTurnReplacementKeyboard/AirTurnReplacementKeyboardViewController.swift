@@ -1,155 +1,122 @@
-//
-//  KeyboardViewController.swift
-//  KeyboardKit
-//
-//  Created by Daniel Saidi on 2021-02-11.
-//  Copyright © 2021 Daniel Saidi. All rights reserved.
-//
-
-#if ATRK_STANDARD
-import KeyboardKit
-#else
-import KeyboardKitPro
-#endif
-import SwiftUI
 import Combine
+import KeyboardKit
+import UIKit
 
-/**
- This keyboard demonstrates how to create a keyboard that is
- using `SystemKeyboard` to mimic a native English keyboard.
- 
- The keyboard makes demo-specific configurations and sets up
- the keyboard with a ``KeyboardView``. You can change all of
- these configurations to see how the keyboard changes.
- 
- To use this keyboard, you must enable it in system settings
- ("Settings/General/Keyboards"). It needs full access to get
- access to features like haptic and audio feedback.
- 
- Note that this demo adds KeyboardKit as a local package and
- not as a remote package, as you would normally add it. This
- is done to make it possible to change the package from this
- project and make it easier to quickly try out new things.
- */
-@objc(AirTurnReplacementKeyboardViewController) public class AirTurnReplacementKeyboardViewController: KeyboardInputViewController {
-    
-    private let userDefaultsCurrentLocaleKey = "com.airturn.AirTurnReplacementKeyboard.currentLocale"
-    
-    @objc(enableAutoCorrect) public var enableAutoCorrect: Bool = false {
-        didSet {
-            keyboardViewParameters.enableAutoCorrect = enableAutoCorrect
-        }
-    }
-    
-    private let keyboardViewParameters = AirTurnReplacementKeyboardViewParameters()
-    
-    private lazy var keyboardView: AirTurnReplacementKeyboardView = { AirTurnReplacementKeyboardView(parameters: keyboardViewParameters) }()
-    
-    @objc(keyboardLocale) public var keyboardLocale: Locale = KeyboardLocale.english_us.locale {
-        didSet {
-            keyboardContext.locale = keyboardLocale
-        }
-    }
-    
-#if ATRK_PRO
-    /// Set your KeyboardKitPro license key to this property to enable KeyboardKitPro functionality. Leave nil for KeyboardKit standard.
-    @objc(keyboardKitProLicenseKey) public static var keyboardKitProLicenseKey: String?
-#endif
-    
-    /**
-      This function returns an array with all locales currently supported by KeyboardKitPro
-     */
-    @objc(allKeyboardKitLocales) public static var allKeyboardKitLocales: [Locale] {
-        KeyboardLocale.allCases.map { $0.locale }
-    }
+/// Presents a system-style software keyboard inside an application when an
+/// attached AirTurn pedal causes iOS to hide its own software keyboard.
+@objc(AirTurnReplacementKeyboardViewController)
+@MainActor
+public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewController {
+    private static let currentLocaleKey = "com.airturn.AirTurnReplacementKeyboard.currentLocale"
 
-    /**
-      This function returns an array with the locales currently configured in device keyboard settings, that are also available in KeyboardKitPro.
-      If none of the configured locales is available in KeyboardKitPro, an array with an english keyboard is returned.
-      The returned array contains at least one entry.
-     */
-    private static var cachedLocales: [Locale] = []
-    private static var cachedInputModes: [UITextInputMode] = []
-    @objc(configuredKeyboardKitLocales) public static var configuredKeyboardKitLocales: [Locale] {
-        guard UITextInputMode.activeInputModes != cachedInputModes else { return cachedLocales }
-        let allKKLocales = allKeyboardKitLocales
-        var seen = Set<Locale>()
-        let locales: [Locale] = UITextInputMode.activeInputModes.compactMap({ inputMode -> Locale? in
-            guard let localeIdentifier = inputMode.primaryLanguage?.replacingOccurrences(of: "-", with: "_") else {
-                return nil
-            }
-            var found = allKKLocales.first(where: { $0.identifier == localeIdentifier })
-            if found == nil, let index = localeIdentifier.firstIndex(of: "_") {
-                let shortIdentifier = localeIdentifier.prefix(upTo: index)
-                found = allKKLocales.first(where: { $0.identifier == shortIdentifier })
-            }
-            // deduplicate while maintaining order
-            guard let found = found, seen.insert(found).inserted else { return nil }
-            return found
-        })
-        cachedInputModes = UITextInputMode.activeInputModes
-        cachedLocales = locales.count == 0 ? [KeyboardLocale.english.locale] : locales
-        return cachedLocales
-    }
-    
-    func updateLocales() {
-        let locales = Self.configuredKeyboardKitLocales
-        keyboardContext.locales = locales
-        if !locales.contains(keyboardContext.locale) {
-            keyboardContext.locale = locales.first!
-        }
-    }
-    
-    /**
-     Here, we register demo-specific services which are then
-     used by the keyboard.
-     */
+    private let viewParameters = AirTurnReplacementKeyboardViewParameters()
     private var currentLocaleCancellable: AnyCancellable?
-    public override func viewDidLoad() {
-        
-        view.translatesAutoresizingMaskIntoConstraints = false
 
-        keyboardAppearance = KeyboardAppearance(context: keyboardContext)
-        
-        keyboardActionHandler = KeyboardActionHandler(
-            inputViewController: self)
-        
-        keyboardLayoutProvider = KeyboardLayoutProvider(
-            inputSetProvider: inputSetProvider,
-            dictationReplacement: nil)
-        
-        // Call super to perform the base initialization
-        super.viewDidLoad()
+    @objc(enableAutoCorrect)
+    public var enableAutoCorrect = false {
+        didSet { applyAutocompleteConfiguration() }
     }
-    
-    /**
-     This function is called whenever the keyboard should be
-     created or updated.
-     
-     Here, we use the ``KeyboardView`` to setup the keyboard.
-     This will create a `SystemKeyboard`-based keyboard that
-     looks like a native keyboard.
-     */
-    public override func viewWillSetupKeyboard() {
-        super.viewWillSetupKeyboard()
-        
-#if ATRK_STANDARD
-        setup(with: keyboardView)
-#else
-        if let key = Self.keyboardKitProLicenseKey {
-            try? setupPro(withLicenseKey: key, view: keyboardView)
-        } else {
-            setup(with: keyboardView)
-        }
+
+    @objc(keyboardLocale)
+    public var keyboardLocale: Locale = .english_us {
+        didSet { state.keyboardContext.locale = keyboardLocale }
+    }
+
+#if ATRK_PRO
+    /// KeyboardKit 10 requires a current subscription key or v10 licence file.
+    /// The existing property name is retained for source and Objective-C
+    /// compatibility with applications that used the previous wrapper.
+    @objc(keyboardKitProLicenseKey)
+    public static var keyboardKitProLicenseKey: String?
 #endif
-        
-        
-        currentLocaleCancellable?.cancel()
-        updateLocales()
-        if let currentLocale = UserDefaults.standard.string(forKey: userDefaultsCurrentLocaleKey), let locale = keyboardContext.locales.first(where: { $0.identifier == currentLocale }) {
-            keyboardContext.locale = locale
+
+    @objc(allKeyboardKitLocales)
+    public static var allKeyboardKitLocales: [Locale] {
+#if ATRK_PRO
+        .keyboardKitSupported
+#else
+        [.english]
+#endif
+    }
+
+    /// Returns the enabled iOS keyboard locales supported by this product,
+    /// retaining their system order and always providing an English fallback.
+    @objc(configuredKeyboardKitLocales)
+    public static var configuredKeyboardKitLocales: [Locale] {
+        var seen = Set<String>()
+        let supported = allKeyboardKitLocales
+        let locales = UITextInputMode.activeInputModes.compactMap { inputMode -> Locale? in
+            guard let identifier = inputMode.primaryLanguage else { return nil }
+            let normalized = identifier.replacingOccurrences(of: "-", with: "_")
+            let language = normalized.split(separator: "_").first.map(String.init)
+            guard let locale = supported.first(where: {
+                $0.identifier.replacingOccurrences(of: "-", with: "_") == normalized
+                    || $0.language.languageCode?.identifier == language
+            }) else { return nil }
+            guard seen.insert(locale.identifier).inserted else { return nil }
+            return locale
         }
-        
-        currentLocaleCancellable = keyboardContext.$locale.sink(receiveValue: { UserDefaults.standard.set($0.identifier, forKey: self.userDefaultsCurrentLocaleKey) })
+        return locales.isEmpty ? [.english] : locales
+    }
+
+    public override func viewWillSetupKeyboardKit() {
+        let app = KeyboardApp(
+            name: "AirTurn Replacement Keyboard",
+            licenseKey: Self.licenseKey,
+            locales: Self.configuredKeyboardKitLocales
+        )
+
+        setupKeyboardKit(for: app) { [weak self] _ in
+            guard let self else { return }
+            self.services.actionHandler = AirTurnKeyboardActionHandler(controller: self)
+            self.applyConfiguration()
+        }
+    }
+
+    public override func viewWillSetupKeyboardView() {
+        let parameters = viewParameters
+        setupKeyboardView { controller in
+            AirTurnReplacementKeyboardView(
+                services: controller.services,
+                state: controller.state,
+                parameters: parameters
+            )
+        }
+    }
+
+    private static var licenseKey: String? {
+#if ATRK_PRO
+        keyboardKitProLicenseKey
+#else
+        nil
+#endif
+    }
+
+    private func applyConfiguration() {
+        let locales = Self.configuredKeyboardKitLocales
+        let storedIdentifier = UserDefaults.standard.string(forKey: Self.currentLocaleKey)
+        let storedLocale = storedIdentifier.flatMap { identifier in
+            locales.first { $0.identifier == identifier }
+        }
+        let selectedLocale = locales.contains(keyboardLocale)
+            ? keyboardLocale
+            : (storedLocale ?? locales[0])
+
+        state.keyboardContext.locales = locales
+        state.keyboardContext.locale = selectedLocale
+        keyboardLocale = selectedLocale
+        applyAutocompleteConfiguration()
+
+        currentLocaleCancellable = state.keyboardContext.$locale
+            .removeDuplicates()
+            .sink { locale in
+                UserDefaults.standard.set(locale.identifier, forKey: Self.currentLocaleKey)
+            }
+    }
+
+    private func applyAutocompleteConfiguration() {
+        viewParameters.enableAutoCorrect = enableAutoCorrect
+        state.autocompleteSettings.isAutocompleteEnabled = enableAutoCorrect
+        state.autocompleteSettings.isAutocorrectEnabled = enableAutoCorrect
     }
 }
