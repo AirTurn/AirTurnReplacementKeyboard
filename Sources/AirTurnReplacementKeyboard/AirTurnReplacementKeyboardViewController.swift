@@ -60,6 +60,8 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
     }
 
     public override func viewWillSetupKeyboardKit() {
+        synchronizeKeyboardContextWithActiveScene()
+
         let app = KeyboardApp(
             name: "AirTurn Replacement Keyboard",
             licenseKey: Self.licenseKey,
@@ -75,13 +77,14 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 
     public override func viewWillSetupKeyboardView() {
         let parameters = viewParameters
+        parameters.maximumHeight = view.bounds.height
         setupKeyboardView { [weak self] controller in
             AirTurnReplacementKeyboardView(
                 services: controller.services,
                 state: controller.state,
                 parameters: parameters,
-                onWidthChange: { [weak self] width in
-                    self?.synchronizeKeyboardLayoutWidth(width)
+                onSizeChange: { [weak self] size in
+                    self?.synchronizeKeyboardLayoutSize(size)
                 }
             )
         }
@@ -91,13 +94,17 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
     /// input view controller. AirTurn embeds this controller's view directly,
     /// so use the actual hosted SwiftUI width to avoid retaining a stale
     /// landscape width after the device rotates.
-    private func synchronizeKeyboardLayoutWidth(_ width: CGFloat) {
-        guard width.isFinite, width > 0 else { return }
+    private func synchronizeKeyboardLayoutSize(_ size: CGSize) {
+        guard size.width.isFinite, size.width > 0 else { return }
+
+        if size.height.isFinite, size.height > 0, viewParameters.maximumHeight != size.height {
+            viewParameters.maximumHeight = size.height
+        }
 
         let context = state.keyboardContext
         let windowSize = view.window?.bounds.size
         var screenSize = windowSize ?? context.screenSize
-        screenSize.width = width
+        screenSize.width = size.width
         if screenSize.height <= 0 {
             screenSize.height = max(context.screenSize.width, context.screenSize.height)
         }
@@ -121,6 +128,32 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
         }
         if context.interfaceOrientation != orientation {
             context.interfaceOrientation = orientation
+        }
+    }
+
+    /// Seed KeyboardKit with the host app's actual device geometry before it
+    /// creates its first SwiftUI layout. Otherwise a wide phone can start with
+    /// the preview row height and outgrow the input view after width syncing.
+    private func synchronizeKeyboardContextWithActiveScene() {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
+            return
+        }
+
+        let context = state.keyboardContext
+        let size = scene.screen.bounds.size
+        context.screenSize = size
+        switch scene.interfaceOrientation {
+        case .portrait:
+            context.interfaceOrientation = .portrait
+        case .portraitUpsideDown:
+            context.interfaceOrientation = .portraitUpsideDown
+        case .landscapeLeft:
+            context.interfaceOrientation = .landscapeLeft
+        case .landscapeRight:
+            context.interfaceOrientation = .landscapeRight
+        default:
+            context.interfaceOrientation = size.width > size.height ? .landscape : .portrait
         }
     }
 
