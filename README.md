@@ -24,3 +24,17 @@ KeyboardKit 10.
 Create and present `AirTurnReplacementKeyboardViewController` as an input view
 controller. Set `enableAutoCorrect` to show or hide the autocomplete toolbar, and
 set `keyboardLocale` to choose the initial locale.
+
+## Upgrading from KeyboardKit 6
+
+KeyboardKit 10 combines the former KeyboardKit and KeyboardKitPro packages. Remove
+any direct KeyboardKitPro dependency and update to the single KeyboardKit 10.9.1
+package dependency. The wrapper keeps its existing public controller and property
+names, including `keyboardKitProLicenseKey`, for source and Objective-C
+compatibility. That property now requires a current KeyboardKit 10 subscription
+key or v10 licence; a KeyboardKit 6 key will not activate licensed locales.
+
+The package's minimum deployment target has changed from iOS 13 to iOS 16. The
+current implementation uses KeyboardKit's standard keyboard directly instead of
+the old demo-derived appearance, autocomplete, layout-provider, and action-handler
+implementations.
