@@ -25,6 +25,11 @@ Create and present `AirTurnReplacementKeyboardViewController` as an input view
 controller. Set `enableAutoCorrect` to show or hide the autocomplete toolbar, and
 set `keyboardLocale` to choose the initial locale.
 
+When AirTurn embeds the controller's view directly, the keyboard observes its
+actual hosted width and keeps KeyboardKit's screen-size and orientation context in
+sync. This prevents a landscape-width layout from being clipped after the host app
+returns to portrait. No application-facing API changed for this behavior.
+
 ## Upgrading from KeyboardKit 6
 
 KeyboardKit 10 combines the former KeyboardKit and KeyboardKitPro packages. Remove

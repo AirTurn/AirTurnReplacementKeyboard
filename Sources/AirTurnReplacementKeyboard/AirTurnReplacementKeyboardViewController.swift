@@ -75,12 +75,52 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 
     public override func viewWillSetupKeyboardView() {
         let parameters = viewParameters
-        setupKeyboardView { controller in
+        setupKeyboardView { [weak self] controller in
             AirTurnReplacementKeyboardView(
                 services: controller.services,
                 state: controller.state,
-                parameters: parameters
+                parameters: parameters,
+                onWidthChange: { [weak self] width in
+                    self?.synchronizeKeyboardLayoutWidth(width)
+                }
             )
+        }
+    }
+
+    /// KeyboardKit normally synchronizes its layout context from an attached
+    /// input view controller. AirTurn embeds this controller's view directly,
+    /// so use the actual hosted SwiftUI width to avoid retaining a stale
+    /// landscape width after the device rotates.
+    private func synchronizeKeyboardLayoutWidth(_ width: CGFloat) {
+        guard width.isFinite, width > 0 else { return }
+
+        let context = state.keyboardContext
+        let windowSize = view.window?.bounds.size
+        var screenSize = windowSize ?? context.screenSize
+        screenSize.width = width
+        if screenSize.height <= 0 {
+            screenSize.height = max(context.screenSize.width, context.screenSize.height)
+        }
+
+        let orientation: Keyboard.InterfaceOrientation
+        switch view.window?.windowScene?.interfaceOrientation {
+        case .portrait:
+            orientation = .portrait
+        case .portraitUpsideDown:
+            orientation = .portraitUpsideDown
+        case .landscapeLeft:
+            orientation = .landscapeLeft
+        case .landscapeRight:
+            orientation = .landscapeRight
+        default:
+            orientation = screenSize.width > screenSize.height ? .landscape : .portrait
+        }
+
+        if context.screenSize != screenSize {
+            context.screenSize = screenSize
+        }
+        if context.interfaceOrientation != orientation {
+            context.interfaceOrientation = orientation
         }
     }
 
