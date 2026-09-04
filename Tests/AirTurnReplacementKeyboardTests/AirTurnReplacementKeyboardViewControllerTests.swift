@@ -149,6 +149,51 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
         XCTAssertGreaterThan(prepared.configuration.rowHeight, layout.configuration.rowHeight)
     }
 
+    func testSystemKeyboardGeometryPhonePortraitMatchesCommonFrame() {
+        let height = SystemKeyboardGeometry.estimatedHeight(
+            screenSize: CGSize(width: 402, height: 874),
+            orientation: .portrait,
+            deviceType: .phone,
+            bottomSafeAreaInset: 34,
+            includeAutocompleteToolbar: false
+        )
+        // Classic 216 key rows + 34 home indicator + 41 modern chrome = 291.
+        XCTAssertEqual(height, 291, accuracy: 0.1)
+    }
+
+    func testSystemKeyboardGeometryIncludesAutocompleteToolbar() {
+        let without = SystemKeyboardGeometry.estimatedHeight(
+            screenSize: CGSize(width: 393, height: 852),
+            orientation: .portrait,
+            deviceType: .phone,
+            bottomSafeAreaInset: 34,
+            includeAutocompleteToolbar: false
+        )
+        let with = SystemKeyboardGeometry.estimatedHeight(
+            screenSize: CGSize(width: 393, height: 852),
+            orientation: .portrait,
+            deviceType: .phone,
+            bottomSafeAreaInset: 34,
+            includeAutocompleteToolbar: true
+        )
+        XCTAssertEqual(
+            with - without,
+            SystemKeyboardGeometry.autocompleteToolbarHeight,
+            accuracy: 0.1
+        )
+    }
+
+    func testSystemKeyboardGeometryHomeButtonPhoneUsesClassicHeight() {
+        let height = SystemKeyboardGeometry.estimatedHeight(
+            screenSize: CGSize(width: 375, height: 667),
+            orientation: .portrait,
+            deviceType: .phone,
+            bottomSafeAreaInset: 0,
+            includeAutocompleteToolbar: false
+        )
+        XCTAssertEqual(height, 216, accuracy: 0.1)
+    }
+
     func testLayoutBottomRowKeepsEmojiSwitcher() {
         let layout = KeyboardLayout(itemRows: [
             [

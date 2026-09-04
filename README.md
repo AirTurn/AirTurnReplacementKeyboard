@@ -27,10 +27,11 @@ set `keyboardLocale` to choose the initial locale.
 
 When AirTurn embeds the controller's view directly, the keyboard observes its
 actual hosted size and keeps KeyboardKit's screen-size and orientation context in
-sync. It also fits KeyboardKit's wide-phone vertical metrics to UIKit's in-app
-keyboard host, preventing a landscape-width layout from being clipped after the
-host app returns to portrait and keeping the first row below the dismiss bar. No
-application-facing API changed for this behavior.
+sync. It sizes its `preferredContentSize` to an estimated system software-keyboard
+height (so the in-app host matches Apple's keyboard size class rather than
+KeyboardKit's shorter natural ~216pt layout), then scales standard key-row
+metrics to fill that host while keeping the bottom row clear of the home
+indicator. No application-facing API changed for this behavior.
 
 The emoji keyboard is sized differently: KeyboardKit's emoji grid isn't governed
 by the same layout fitting and can be taller than the alphabetic keyboard, as it

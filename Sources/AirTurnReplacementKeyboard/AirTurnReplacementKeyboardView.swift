@@ -26,7 +26,7 @@ private struct AirTurnReplacementKeyboardSizePreferenceKey: PreferenceKey {
 /// follow the current iOS keyboard layout and appearance as closely as
 /// KeyboardKit supports.
 ///
-/// KNOWN LIMITATION: `layout.fitted(toHostHeight:bottomInset:)` scales the
+/// KNOWN LIMITATION: `layout.fitted(toHostHeight:)` scales the
 /// alphabetic/numeric key layout to fit `parameters.maximumHeight`, but the
 /// emoji keyboard's own grid does not follow suit. KeyboardKit 10.9.1 renders
 /// that grid through a UIKit-bridged component
@@ -38,6 +38,10 @@ private struct AirTurnReplacementKeyboardSizePreferenceKey: PreferenceKey {
 /// changed its measured rendered size. When the emoji grid's natural height
 /// exceeds the host's fixed frame, it can render past the host's bounds. See
 /// `AirTurnReplacementKeyboardRenderingTests` for a reproduction.
+///
+/// KeyboardKit's built-in background tracks the layout's natural height, so
+/// when rows are scaled up this view also draws an explicit full-bleed
+/// `Color.keyboardBackground` behind the host.
 struct AirTurnReplacementKeyboardView: View {
     let services: KeyboardServices
     let state: KeyboardState
@@ -45,6 +49,7 @@ struct AirTurnReplacementKeyboardView: View {
 
     @ObservedObject var parameters: AirTurnReplacementKeyboardViewParameters
     @ObservedObject private var keyboardContext: KeyboardContext
+    @Environment(\.colorScheme) private var colorScheme
 
     init(
         services: KeyboardServices,
@@ -62,15 +67,17 @@ struct AirTurnReplacementKeyboardView: View {
     private var layout: KeyboardLayout {
         let baseLayout = KeyboardLayout.standard(for: keyboardContext)
         let bottomInset = max(0, parameters.bottomSafeAreaInset)
+        // Scale into the full host height with the home-indicator clearance
+        // inside KeyboardKit's layout edge insets, so key rows and KK's own
+        // chrome share one vertical box instead of leaving a padded gap
+        // outside the background.
         return Self.layoutApplyingBottomRowFixesIfNeeded(
             baseLayout,
             locales: keyboardContext.locales
         )
         .preparedForHost(
-            // SwiftUI `.padding(.bottom)` owns the home-indicator gap; scale
-            // key rows to the remaining height so they fill flush to that pad.
-            hostHeight: max(0, parameters.maximumHeight - bottomInset),
-            bottomSafeAreaInset: 0,
+            hostHeight: max(0, parameters.maximumHeight),
+            bottomSafeAreaInset: bottomInset,
             includeAutocompleteToolbar: parameters.enableAutoCorrect
         )
     }
@@ -89,11 +96,13 @@ struct AirTurnReplacementKeyboardView: View {
                 }
             }
         )
-        .padding(.bottom, max(0, parameters.bottomSafeAreaInset))
-        // Ignore the container safe area so the explicit bottom padding is the
-        // sole home-indicator clearance; otherwise SwiftUI also insets and the
-        // key layout is vertically centered in the leftover space.
-        .ignoresSafeArea(.container, edges: .bottom)
+        // Fill the UIKit host so scaled key rows aren't taller than KK's
+        // intrinsic background (which stays at the natural ~216pt size).
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .background {
+            Color.keyboardBackground(for: colorScheme)
+                .ignoresSafeArea()
+        }
         .background {
             GeometryReader { geometry in
                 Color.clear.preference(

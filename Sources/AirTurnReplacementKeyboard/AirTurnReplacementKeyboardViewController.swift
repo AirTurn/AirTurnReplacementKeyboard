@@ -1,5 +1,6 @@
 import Combine
 import KeyboardKit
+import SwiftUI
 import UIKit
 
 /// Presents a system-style software keyboard inside an application when an
@@ -11,6 +12,10 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 
     private let viewParameters = AirTurnReplacementKeyboardViewParameters()
     private var currentLocaleCancellable: AnyCancellable?
+    /// Keeps the UIKit `inputView` height at the system keyboard size.
+    /// AirTurn installs `keyboardView` as a plain `inputView`, which sizes from
+    /// the view's frame/constraints — not from `preferredContentSize`.
+    private var hostHeightConstraint: NSLayoutConstraint?
 
     /// The host height `layout.preparedForHost` scales the alphabetic/
     /// numeric layout to. Exposed read-only for tests.
@@ -131,19 +136,10 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // Initial UIKit host sizing often arrives only after the first layout
-        // pass. Adopt that size for alphabetic/numeric keyboards, and allow
-        // shrinking back after the emoji keyboard grew the host — but do not
-        // let an emoji-sized host permanently raise the alphabetic fit target.
-        let type = state.keyboardContext.keyboardType
-        let hostHeight = view.superview?.bounds.height ?? view.bounds.height
-        if type != .emojis {
-            if hostHeight.isFinite, hostHeight > 0,
-               viewParameters.maximumHeight <= 0 || hostHeight <= viewParameters.maximumHeight + 1 {
-                viewParameters.maximumHeight = hostHeight
-            }
-        }
-        viewParameters.bottomSafeAreaInset = resolvedBottomSafeAreaInset()
+        // Re-apply system-height sizing after each layout pass so a short
+        // natural KeyboardKit intrinsic size cannot permanently shrink the
+        // alphabetic/numeric host below the system keyboard.
+        updateHostGeometryParameters()
     }
 
     public override func viewSafeAreaInsetsDidChange() {
@@ -151,55 +147,148 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
         updateHostGeometryParameters()
     }
 
-    /// `viewDidLayoutSubviews` fires both for a genuine host resize (e.g.
-    /// rotation) and for the layout pass `synchronizeKeyboardLayoutSize`
-    /// itself triggers by growing `preferredContentSize` to fit content — the
-    /// two can't be told apart there. Rotation is the one place UIKit hands
-    /// us an unambiguous "the environment is resizing" signal with the new
-    /// size, so `maximumHeight` (the target `preparedForHost` scales the
-    /// alphabetic/numeric layout to) is re-anchored only here, keeping it
-    /// from drifting to whatever the emoji keyboard last grew the host to.
+    /// Re-anchors alphabetic/numeric sizing to the system keyboard height for
+    /// the destination size. Emoji growth of `preferredContentSize` is cleared
+    /// on rotation so the next alphabetic layout starts from the system size.
     public override func viewWillTransition(
         to size: CGSize,
         with coordinator: any UIViewControllerTransitionCoordinator
     ) {
         super.viewWillTransition(to: size, with: coordinator)
-        if size.height.isFinite, size.height > 0 {
-            viewParameters.maximumHeight = size.height
-        }
-        viewParameters.bottomSafeAreaInset = resolvedBottomSafeAreaInset()
+        updateHostGeometryParameters(screenSizeOverride: size)
     }
 
     /// Syncs host height and bottom safe-area inset used by the SwiftUI layout.
-    private func updateHostGeometryParameters() {
-        let hostHeight = view.superview?.bounds.height ?? view.bounds.height
-        if hostHeight.isFinite, hostHeight > 0 {
-            viewParameters.maximumHeight = hostHeight
-        }
+    ///
+    /// Drives `preferredContentSize` to an estimated system keyboard height so
+    /// the UIKit/`AirTurnKeyboardManager` host matches Apple's keyboard size
+    /// class. KeyboardKit's natural alphabetic layout is only ~216pt; without
+    /// this, the in-app `inputView` stays short and keys never reach system size.
+    ///
+    /// - Parameter screenSizeOverride: Optional size used during rotation
+    ///   before the window reports the new bounds.
+    private func updateHostGeometryParameters(screenSizeOverride: CGSize? = nil) {
         let bottomInset = resolvedBottomSafeAreaInset()
         viewParameters.bottomSafeAreaInset = bottomInset
 
-        // Ensure the input view is tall enough to include the home-indicator
-        // region; otherwise the bottom row has nowhere safe to sit.
-        if bottomInset > 0 {
-            let target = max(preferredContentSize.height, viewParameters.maximumHeight + bottomInset)
-            if target > preferredContentSize.height {
-                let width = view.bounds.width
-                preferredContentSize = CGSize(
-                    width: width > 0 ? width : max(preferredContentSize.width, 1),
-                    height: target
-                )
+        let screenSize = resolvedScreenSize(override: screenSizeOverride)
+        let orientation = resolvedInterfaceOrientation(screenSize: screenSize)
+        let estimated = SystemKeyboardGeometry.estimatedHeight(
+            screenSize: screenSize,
+            orientation: orientation,
+            deviceType: state.keyboardContext.deviceTypeForKeyboard,
+            bottomSafeAreaInset: bottomInset,
+            includeAutocompleteToolbar: enableAutoCorrect
+        )
+
+        let width: CGFloat = {
+            if let overrideWidth = screenSizeOverride?.width, overrideWidth > 0 {
+                return overrideWidth
             }
-            // Keep the fit target in sync with the grown host so key rows
-            // fill the area above the home indicator instead of centering
-            // a shorter layout in the taller input view.
-            if preferredContentSize.height > viewParameters.maximumHeight {
-                viewParameters.maximumHeight = preferredContentSize.height
-            }
+            let boundsWidth = view.bounds.width
+            return boundsWidth > 0 ? boundsWidth : max(preferredContentSize.width, screenSize.width, 1)
+        }()
+
+        let type = state.keyboardContext.keyboardType
+        if type == .emojis {
+            // Emoji may already have grown the host; never shrink below system.
+            let height = max(preferredContentSize.height, estimated)
+            applyInputViewHostHeight(height, width: width)
+            viewParameters.maximumHeight = max(viewParameters.maximumHeight, estimated)
+        } else {
+            // Alphabetic/numeric: lock to system height (shrink after emoji).
+            applyInputViewHostHeight(estimated, width: width)
+            viewParameters.maximumHeight = estimated
         }
 
         if state.keyboardContext.isLiquidGlassAvailable {
             state.keyboardContext.isLiquidGlassEnabled = true
+        }
+    }
+
+    /// Applies the host height UIKit and AirTurn use when this controller's
+    /// view is installed as a plain `inputView` (not as `inputViewController`).
+    ///
+    /// - Parameters:
+    ///   - height: Target keyboard height in points.
+    ///   - width: Target keyboard width in points.
+    private func applyInputViewHostHeight(_ height: CGFloat, width: CGFloat) {
+        guard height.isFinite, height > 0 else { return }
+
+        preferredContentSize = CGSize(
+            width: width > 0 ? width : max(preferredContentSize.width, 1),
+            height: height
+        )
+
+        if let inputView = inputView {
+            inputView.allowsSelfSizing = true
+        }
+
+        // Match KeyboardKit's standard keyboard chrome so UIKit doesn't show
+        // the app through a short SwiftUI background while keys scale taller.
+        view.backgroundColor = UIColor { traits in
+            let scheme: ColorScheme = traits.userInterfaceStyle == .dark ? .dark : .light
+            return UIColor(Color.keyboardBackground(for: scheme))
+        }
+        inputView?.backgroundColor = view.backgroundColor
+
+        var frame = view.frame
+        if width > 0 {
+            frame.size.width = width
+        }
+        frame.size.height = height
+        if view.frame.size != frame.size {
+            view.frame = frame
+        }
+
+        if let hostHeightConstraint {
+            if abs(hostHeightConstraint.constant - height) > 0.5 {
+                hostHeightConstraint.constant = height
+            }
+        } else {
+            let constraint = view.heightAnchor.constraint(equalToConstant: height)
+            // Slightly below required so KeyboardKit's own layout can still
+            // resolve without unsatisfiable-constraint noise if it also pins height.
+            constraint.priority = UILayoutPriority(999)
+            constraint.isActive = true
+            hostHeightConstraint = constraint
+        }
+
+        view.invalidateIntrinsicContentSize()
+    }
+
+    /// Screen size used for system-keyboard height estimation.
+    private func resolvedScreenSize(override: CGSize?) -> CGSize {
+        if let override, override.width > 0, override.height > 0 {
+            return override
+        }
+        if let screen = view.window?.windowScene?.screen.bounds.size,
+           screen.width > 0, screen.height > 0 {
+            return screen
+        }
+        let contextSize = state.keyboardContext.screenSize
+        if contextSize.width > 0, contextSize.height > 0 {
+            return contextSize
+        }
+        return CGSize(width: 393, height: 852)
+    }
+
+    /// Interface orientation used for system-keyboard height estimation.
+    private func resolvedInterfaceOrientation(screenSize: CGSize) -> Keyboard.InterfaceOrientation {
+        switch view.window?.windowScene?.interfaceOrientation {
+        case .portrait:
+            return .portrait
+        case .portraitUpsideDown:
+            return .portraitUpsideDown
+        case .landscapeLeft:
+            return .landscapeLeft
+        case .landscapeRight:
+            return .landscapeRight
+        default:
+            return state.keyboardContext.interfaceOrientation.isLandscape
+                || screenSize.width > screenSize.height
+                ? .landscape
+                : .portrait
         }
     }
 
@@ -245,9 +334,9 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
         // matching how the real system keyboard is itself taller in emoji
         // mode. `AirTurnKeyboardStateMonitor` already observes the resulting
         // host resize and repositions the surrounding AirTurn UI for it.
-        // Only grow preferredContentSize (emoji keyboard). Shrinking it to the
-        // bare key-row height would drop the home-indicator region out of the
-        // input view and put the bottom row back into the rounded corners.
+        // Only grow preferredContentSize for emoji. Alphabetic/numeric sizing
+        // is restored to the system keyboard height in
+        // `updateHostGeometryParameters()` when leaving emoji mode.
         if size.height.isFinite, size.height > 0, size.height > preferredContentSize.height {
             preferredContentSize = CGSize(width: size.width, height: size.height)
         }

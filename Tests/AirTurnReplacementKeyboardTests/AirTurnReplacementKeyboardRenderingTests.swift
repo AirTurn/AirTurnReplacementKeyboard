@@ -79,6 +79,7 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
         // Simulates the emoji keyboard's grid (whose height isn't governed by
         // layout.preparedForHost) reporting a render taller than the
         // current host.
+        controller.state.keyboardContext.keyboardType = .emojis
         let tallerReportedHeight = controller.view.bounds.height + 84
         controller.synchronizeKeyboardLayoutSize(CGSize(width: 393, height: tallerReportedHeight))
 
@@ -92,8 +93,8 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
             controller.maximumHeight,
             maximumHeightBefore,
             "maximumHeight is the target layout.preparedForHost scales the "
-                + "alphabetic/numeric layout to, and is anchored from rotation "
-                + "(viewWillTransition(to:with:)), not from reported render sizes — "
+                + "alphabetic/numeric layout to, and is anchored from the system "
+                + "keyboard height estimate, not from reported emoji render sizes — "
                 + "otherwise the emoji keyboard growing the host would leave the "
                 + "alphabetic layout permanently fitted to the wrong, larger height "
                 + "the next time it's shown."
@@ -103,9 +104,8 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
     // MARK: - Helpers
 
     /// Hosts a real `AirTurnReplacementKeyboardViewController` in a window whose
-    /// height matches the alphabetic keyboard's natural layout height, mirroring
-    /// how `AirTurnKeyboardManager` sizes the host view before the replacement
-    /// keyboard's own SwiftUI content has had a chance to report its size.
+    /// height matches the estimated system keyboard height, mirroring the host
+    /// size `updateHostGeometryParameters` requests via `preferredContentSize`.
     private func makeHostedController() -> AirTurnReplacementKeyboardViewController {
         let context = KeyboardContext()
         context.deviceTypeForKeyboard = .phone
@@ -113,7 +113,13 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
         context.interfaceOrientation = .portrait
         context.locales = [.english]
         context.keyboardType = .alphabetic
-        let hostHeight = KeyboardLayout.standard(for: context).totalHeight
+        let hostHeight = SystemKeyboardGeometry.estimatedHeight(
+            screenSize: context.screenSize,
+            orientation: .portrait,
+            deviceType: .phone,
+            bottomSafeAreaInset: 34,
+            includeAutocompleteToolbar: false
+        )
 
         let controller = AirTurnReplacementKeyboardViewController()
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
