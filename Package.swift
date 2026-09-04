@@ -47,6 +47,11 @@ let package = Package(
             name: "AirTurnReplacementKeyboardStandard",
             dependencies: ["KeyboardKit"],
             swiftSettings: [.define("ATRK_STANDARD")]
+        ),
+        .testTarget(
+            name: "AirTurnReplacementKeyboardTests",
+            dependencies: ["AirTurnReplacementKeyboard"],
+            swiftSettings: [.define("ATRK_PRO")]
         )
     ]
 )

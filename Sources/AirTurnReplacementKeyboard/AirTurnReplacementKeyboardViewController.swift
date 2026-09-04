@@ -12,6 +12,14 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
     private let viewParameters = AirTurnReplacementKeyboardViewParameters()
     private var currentLocaleCancellable: AnyCancellable?
 
+    /// The host height `layout.preparedForHost` scales the alphabetic/
+    /// numeric layout to. Exposed read-only for tests.
+    internal var maximumHeight: CGFloat { viewParameters.maximumHeight }
+
+    /// Bottom safe-area inset applied as layout edge padding so the bottom
+    /// key row clears the home indicator when embedded as an `inputView`.
+    internal var bottomSafeAreaInset: CGFloat { viewParameters.bottomSafeAreaInset }
+
     @objc(enableAutoCorrect)
     public var enableAutoCorrect = false {
         didSet { applyAutocompleteConfiguration() }
@@ -43,13 +51,21 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
     /// retaining their system order and always providing an English fallback.
     @objc(configuredKeyboardKitLocales)
     public static var configuredKeyboardKitLocales: [Locale] {
+        return configuredKeyboardKitLocales(from: UITextInputMode.activeInputModes)
+    }
+
+    internal static func configuredKeyboardKitLocales(from inputModes: [UITextInputMode]) -> [Locale] {
+        configuredKeyboardKitLocales(
+            from: inputModes.compactMap { $0.primaryLanguage?.replacingOccurrences(of: "-", with: "_") }
+        )
+    }
+
+    internal static func configuredKeyboardKitLocales(from inputModeIdentifiers: [String]) -> [Locale] {
         var seen = Set<String>()
-        let supported = allKeyboardKitLocales
-        let locales = UITextInputMode.activeInputModes.compactMap { inputMode -> Locale? in
-            guard let identifier = inputMode.primaryLanguage else { return nil }
+        let locales = inputModeIdentifiers.compactMap { (identifier: String) -> Locale? in
             let normalized = identifier.replacingOccurrences(of: "-", with: "_")
             let language = normalized.split(separator: "_").first.map(String.init)
-            guard let locale = supported.first(where: {
+            guard let locale = allKeyboardKitLocales.first(where: {
                 $0.identifier.replacingOccurrences(of: "-", with: "_") == normalized
                     || $0.language.languageCode?.identifier == language
             }) else { return nil }
@@ -68,16 +84,33 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
             locales: Self.configuredKeyboardKitLocales
         )
 
-        setupKeyboardKit(for: app) { [weak self] _ in
+        setupKeyboardKit(for: app) { [weak self] result in
+            switch result {
+            case .success(let license):
+                NSLog(
+                    "AirTurnReplacementKeyboard: KeyboardKit setup succeeded (license=%@)",
+                    license.map { String(describing: $0) } ?? "nil"
+                )
+            case .failure(let error):
+                NSLog(
+                    "AirTurnReplacementKeyboard: KeyboardKit setup failed (%@). "
+                        + "Emoji and extra locales require a current KeyboardKit 10 license key.",
+                    String(describing: error)
+                )
+            }
             guard let self else { return }
-            self.services.actionHandler = AirTurnKeyboardActionHandler(controller: self)
+            let actionHandler = AirTurnKeyboardActionHandler(controller: self)
+            actionHandler.onNextLocale = { [weak self] in
+                self?.refreshConfiguredKeyboardLocales()
+            }
+            self.services.actionHandler = actionHandler
             self.applyConfiguration()
         }
     }
 
     public override func viewWillSetupKeyboardView() {
         let parameters = viewParameters
-        parameters.maximumHeight = view.bounds.height
+        updateHostGeometryParameters()
         setupKeyboardView { [weak self] controller in
             AirTurnReplacementKeyboardView(
                 services: controller.services,
@@ -90,15 +123,133 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
         }
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        refreshConfiguredKeyboardLocales()
+        updateHostGeometryParameters()
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Initial UIKit host sizing often arrives only after the first layout
+        // pass. Adopt that size for alphabetic/numeric keyboards, and allow
+        // shrinking back after the emoji keyboard grew the host — but do not
+        // let an emoji-sized host permanently raise the alphabetic fit target.
+        let type = state.keyboardContext.keyboardType
+        let hostHeight = view.superview?.bounds.height ?? view.bounds.height
+        if type != .emojis {
+            if hostHeight.isFinite, hostHeight > 0,
+               viewParameters.maximumHeight <= 0 || hostHeight <= viewParameters.maximumHeight + 1 {
+                viewParameters.maximumHeight = hostHeight
+            }
+        }
+        viewParameters.bottomSafeAreaInset = resolvedBottomSafeAreaInset()
+    }
+
+    public override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateHostGeometryParameters()
+    }
+
+    /// `viewDidLayoutSubviews` fires both for a genuine host resize (e.g.
+    /// rotation) and for the layout pass `synchronizeKeyboardLayoutSize`
+    /// itself triggers by growing `preferredContentSize` to fit content — the
+    /// two can't be told apart there. Rotation is the one place UIKit hands
+    /// us an unambiguous "the environment is resizing" signal with the new
+    /// size, so `maximumHeight` (the target `preparedForHost` scales the
+    /// alphabetic/numeric layout to) is re-anchored only here, keeping it
+    /// from drifting to whatever the emoji keyboard last grew the host to.
+    public override func viewWillTransition(
+        to size: CGSize,
+        with coordinator: any UIViewControllerTransitionCoordinator
+    ) {
+        super.viewWillTransition(to: size, with: coordinator)
+        if size.height.isFinite, size.height > 0 {
+            viewParameters.maximumHeight = size.height
+        }
+        viewParameters.bottomSafeAreaInset = resolvedBottomSafeAreaInset()
+    }
+
+    /// Syncs host height and bottom safe-area inset used by the SwiftUI layout.
+    private func updateHostGeometryParameters() {
+        let hostHeight = view.superview?.bounds.height ?? view.bounds.height
+        if hostHeight.isFinite, hostHeight > 0 {
+            viewParameters.maximumHeight = hostHeight
+        }
+        let bottomInset = resolvedBottomSafeAreaInset()
+        viewParameters.bottomSafeAreaInset = bottomInset
+
+        // Ensure the input view is tall enough to include the home-indicator
+        // region; otherwise the bottom row has nowhere safe to sit.
+        if bottomInset > 0 {
+            let target = max(preferredContentSize.height, viewParameters.maximumHeight + bottomInset)
+            if target > preferredContentSize.height {
+                let width = view.bounds.width
+                preferredContentSize = CGSize(
+                    width: width > 0 ? width : max(preferredContentSize.width, 1),
+                    height: target
+                )
+            }
+            // Keep the fit target in sync with the grown host so key rows
+            // fill the area above the home indicator instead of centering
+            // a shorter layout in the taller input view.
+            if preferredContentSize.height > viewParameters.maximumHeight {
+                viewParameters.maximumHeight = preferredContentSize.height
+            }
+        }
+
+        if state.keyboardContext.isLiquidGlassAvailable {
+            state.keyboardContext.isLiquidGlassEnabled = true
+        }
+    }
+
+    /// Prefers any connected window's bottom safe area because an embedded
+    /// keyboard `inputView` (and its keyboard window) often reports `0` even
+    /// when the home indicator overlaps the host. Falls back to a floor on
+    /// modern phone screen sizes so the bottom row still clears rounded corners.
+    private func resolvedBottomSafeAreaInset() -> CGFloat {
+        var inset = max(view.safeAreaInsets.bottom, view.window?.safeAreaInsets.bottom ?? 0)
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+            for window in scene.windows {
+                inset = max(inset, window.safeAreaInsets.bottom)
+            }
+        }
+        if inset > 0 {
+            return inset
+        }
+        let screenHeight = view.window?.windowScene?.screen.bounds.height
+            ?? state.keyboardContext.screenSize.height
+        // iPhone X and later (portrait) use a home indicator; without an
+        // inset the bottom row sits in the rounded corner region.
+        return screenHeight >= 812 ? 34 : 0
+    }
+
     /// KeyboardKit normally synchronizes its layout context from an attached
     /// input view controller. AirTurn embeds this controller's view directly,
     /// so use the actual hosted SwiftUI width to avoid retaining a stale
     /// landscape width after the device rotates.
-    private func synchronizeKeyboardLayoutSize(_ size: CGSize) {
+    internal func synchronizeKeyboardLayoutSize(_ size: CGSize) {
         guard size.width.isFinite, size.width > 0 else { return }
 
-        if size.height.isFinite, size.height > 0, viewParameters.maximumHeight != size.height {
-            viewParameters.maximumHeight = size.height
+        // `maximumHeight` (the target `layout.preparedForHost` scales the
+        // alphabetic/numeric layout to) is anchored from rotation /
+        // `updateHostGeometryParameters()`, not from here: syncing it from
+        // whatever SwiftUI reports it rendered would let this call's own
+        // `preferredContentSize` growth, below, redefine the very cap
+        // `preparedForHost` is meant to respect.
+        //
+        // The emoji keyboard's own grid isn't governed by `layout`/`fitted`
+        // (see the "KNOWN LIMITATION" doc comment on
+        // `AirTurnReplacementKeyboardView`) and can render taller than the
+        // current host. Rather than clip it, ask UIKit for more room —
+        // matching how the real system keyboard is itself taller in emoji
+        // mode. `AirTurnKeyboardStateMonitor` already observes the resulting
+        // host resize and repositions the surrounding AirTurn UI for it.
+        // Only grow preferredContentSize (emoji keyboard). Shrinking it to the
+        // bare key-row height would drop the home-indicator region out of the
+        // input view and put the bottom row back into the rounded corners.
+        if size.height.isFinite, size.height > 0, size.height > preferredContentSize.height {
+            preferredContentSize = CGSize(width: size.width, height: size.height)
         }
 
         let context = state.keyboardContext
@@ -165,15 +316,30 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 #endif
     }
 
+    static func defaultLocale(
+        for locales: [Locale],
+        preferredLocale: Locale,
+        storedLocaleIdentifier: String?
+    ) -> Locale {
+        if locales.contains(preferredLocale) {
+            return preferredLocale
+        }
+
+        if let storedLocaleIdentifier,
+           let storedLocale = locales.first(where: { $0.identifier == storedLocaleIdentifier }) {
+            return storedLocale
+        }
+
+        return locales[0]
+    }
+
     private func applyConfiguration() {
         let locales = Self.configuredKeyboardKitLocales
-        let storedIdentifier = UserDefaults.standard.string(forKey: Self.currentLocaleKey)
-        let storedLocale = storedIdentifier.flatMap { identifier in
-            locales.first { $0.identifier == identifier }
-        }
-        let selectedLocale = locales.contains(keyboardLocale)
-            ? keyboardLocale
-            : (storedLocale ?? locales[0])
+        let selectedLocale = Self.defaultLocale(
+            for: locales,
+            preferredLocale: keyboardLocale,
+            storedLocaleIdentifier: UserDefaults.standard.string(forKey: Self.currentLocaleKey)
+        )
 
         state.keyboardContext.locales = locales
         state.keyboardContext.locale = selectedLocale
@@ -185,6 +351,23 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
             .sink { locale in
                 UserDefaults.standard.set(locale.identifier, forKey: Self.currentLocaleKey)
             }
+    }
+
+    private func refreshConfiguredKeyboardLocales() {
+        let locales = Self.configuredKeyboardKitLocales
+        let currentLocale = state.keyboardContext.locale
+        state.keyboardContext.locales = locales
+
+        if locales.contains(currentLocale) {
+            return
+        }
+
+        state.keyboardContext.locale = Self.defaultLocale(
+            for: locales,
+            preferredLocale: keyboardLocale,
+            storedLocaleIdentifier: UserDefaults.standard.string(forKey: Self.currentLocaleKey)
+        )
+        keyboardLocale = state.keyboardContext.locale
     }
 
     private func applyAutocompleteConfiguration() {

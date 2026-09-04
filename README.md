@@ -32,6 +32,39 @@ keyboard host, preventing a landscape-width layout from being clipped after the
 host app returns to portrait and keeping the first row below the dismiss bar. No
 application-facing API changed for this behavior.
 
+The emoji keyboard is sized differently: KeyboardKit's emoji grid isn't governed
+by the same layout fitting and can be taller than the alphabetic keyboard, as it
+is on the real system keyboard. Rather than clip it, the controller grows its
+`preferredContentSize` to request more room from UIKit when the emoji keyboard
+needs it, and returns to the alphabetic keyboard's height when switching back.
+Whether the host visibly resizes end-to-end depends on the surrounding app's
+input view installation reacting to that request.
+
+## Running tests
+
+The package's unit tests cover locale resolution (`configuredKeyboardKitLocales`,
+`defaultLocale`), the locale-switch key layout fix
+(`AirTurnReplacementKeyboardView.layoutApplyingLocaleKeyFixIfNeeded`), that the
+alphabetic keyboard fits its host, and the emoji keyboard's resize-request
+behavior (`synchronizeKeyboardLayoutSize`). Run them with the bundled script,
+which picks a booted or available iPhone simulator automatically:
+
+```sh
+scripts/test.sh
+```
+
+Pass a specific simulator UDID or destination string to target one explicitly:
+
+```sh
+scripts/test.sh 29C7CD0A-5FE3-4A61-B2E6-3E397575098F
+scripts/test.sh "platform=iOS Simulator,name=iPhone 16 Pro"
+```
+
+Equivalently, run `xcodebuild test -scheme AirTurnReplacementKeyboard-Package
+-destination "platform=iOS Simulator,name=<simulator name>"` directly, or open
+the package in Xcode and run the `AirTurnReplacementKeyboardTests` target
+(⌘U) with the `AirTurnReplacementKeyboard-Package` scheme selected.
+
 ## Upgrading from KeyboardKit 6
 
 KeyboardKit 10 combines the former KeyboardKit and KeyboardKitPro packages. Remove
