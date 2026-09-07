@@ -5,6 +5,8 @@
 #   scripts/test.sh                          # picks an available iPhone simulator
 #   scripts/test.sh <simulator-udid>         # runs against a specific simulator
 #   scripts/test.sh "platform=iOS Simulator,name=iPhone 16 Pro"   # full destination string
+#   scripts/test.sh "" -resultBundlePath /tmp/KeyboardTests.xcresult
+# Additional arguments after the destination are forwarded to xcodebuild.
 
 set -eu
 
@@ -13,6 +15,9 @@ package_directory=$(CDPATH= cd -- "$script_directory/.." && pwd)
 cd "$package_directory"
 
 destination_argument=${1:-}
+if [ "$#" -gt 0 ]; then
+    shift
+fi
 
 if [ -z "$destination_argument" ]; then
     # Prefer a simulator that is already booted; fall back to the first
@@ -37,4 +42,5 @@ echo "Running AirTurnReplacementKeyboard-Package tests on: $destination"
 
 xcodebuild test \
     -scheme AirTurnReplacementKeyboard-Package \
-    -destination "$destination"
+    -destination "$destination" \
+    "$@"

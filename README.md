@@ -80,6 +80,38 @@ Equivalently, run `xcodebuild test -scheme AirTurnReplacementKeyboard-Package
 the package in Xcode and run the `AirTurnReplacementKeyboardTests` target
 (⌘U) with the `AirTurnReplacementKeyboard-Package` scheme selected.
 
+## Continuous integration
+
+`.github/workflows/ios-tests.yml` runs on pushes, pull requests, and manual
+dispatches in the **AirTurnReplacementKeyboard repository**. This directory is a
+submodule of SDK-iOS; the workflow must be pushed to the package repository to
+run. Enable GitHub Actions there if it is disabled.
+
+The job uses a GitHub-hosted macOS 15 runner and its latest installed released
+Xcode 26, selecting an
+available iPhone simulator through `scripts/test.sh`. It runs the package's unit
+and rendering tests with `xcodebuild`, since `swift test` targets macOS and cannot
+load the iOS KeyboardKit binary. Tests run serially, with execution timeouts to
+bound controller setup hangs. No signing credentials or Pro license secrets are
+configured.
+
+Each run uploads `keyboard-test-results`, containing the Xcode version, simulator
+inventory, build log, and `.xcresult` bundle when produced, including on failure.
+Artifacts are retained for 14 days. Download the bundle and open it in Xcode to
+inspect failures. The job has a 30-minute timeout.
+
+To reproduce the result-bundle invocation locally, use a fresh output path:
+
+```sh
+sh scripts/test.sh "" -parallel-testing-enabled NO \
+  -resultBundlePath /tmp/KeyboardTests.xcresult
+```
+
+These are package tests, including a hosted-controller rendering test. They do
+not verify the example app's full input-view installation or that its host
+honors emoji resize requests. Those still require app-hosted UI tests or manual
+device verification.
+
 ## Upgrading from KeyboardKit 6
 
 KeyboardKit 10 combines the former KeyboardKit and KeyboardKitPro packages. Remove
