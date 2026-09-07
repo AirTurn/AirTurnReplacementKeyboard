@@ -55,6 +55,15 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
         let controller = makeHostedController()
         settle(controller)
 
+        // The dp.1 compatibility host must replace its child when KeyboardKit
+        // asks to rebuild the keyboard, rather than stacking SwiftUI hosts.
+        let originalHost = controller.children.first
+        XCTAssertEqual(controller.children.count, 1)
+        controller.viewWillSetupKeyboardView()
+        settle(controller)
+        XCTAssertEqual(controller.children.count, 1)
+        XCTAssertFalse(controller.children.first === originalHost)
+
         let bounds = controller.view.bounds
         let maxY = deepestVisibleMaxY(in: controller.view)
         XCTAssertLessThanOrEqual(
@@ -107,14 +116,15 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
     /// height matches the estimated system keyboard height, mirroring the host
     /// size `updateHostGeometryParameters` requests via `preferredContentSize`.
     private func makeHostedController() -> AirTurnReplacementKeyboardViewController {
-        let context = KeyboardContext()
+        let context = KeyboardContext(settings: KeyboardSettings())
         context.deviceTypeForKeyboard = .phone
-        context.screenSize = CGSize(width: 393, height: 852)
+        let screenSize = CGSize(width: 393, height: 852)
+        context.screenSize = screenSize
         context.interfaceOrientation = .portrait
         context.locales = [.english]
         context.keyboardType = .alphabetic
         let hostHeight = SystemKeyboardGeometry.estimatedHeight(
-            screenSize: context.screenSize,
+            screenSize: screenSize,
             orientation: .portrait,
             deviceType: .phone,
             bottomSafeAreaInset: 34,

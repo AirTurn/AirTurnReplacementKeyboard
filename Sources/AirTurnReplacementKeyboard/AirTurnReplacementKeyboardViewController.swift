@@ -10,6 +10,8 @@ import UIKit
 public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewController {
     private static let currentLocaleKey = "com.airturn.AirTurnReplacementKeyboard.currentLocale"
 
+    private var keyboardHostingController: UIHostingController<AnyView>?
+
     private let viewParameters = AirTurnReplacementKeyboardViewParameters()
     private var currentLocaleCancellable: AnyCancellable?
     /// Keeps the UIKit `inputView` height at the system keyboard size.
@@ -118,16 +120,35 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
     public override func viewWillSetupKeyboardView() {
         let parameters = viewParameters
         updateHostGeometryParameters()
-        setupKeyboardView { [weak self] controller in
-            AirTurnReplacementKeyboardView(
-                services: controller.services,
-                state: controller.state,
-                parameters: parameters,
-                onSizeChange: { [weak self] size in
-                    self?.synchronizeKeyboardLayoutSize(size)
-                }
-            )
+        // KeyboardKit 11 dp.1 removes setupKeyboardView without exposing
+        // another hosting helper. Embed our SwiftUI view using public UIKit
+        // APIs and inject the complete KeyboardKit state explicitly.
+        if let previous = keyboardHostingController {
+            previous.willMove(toParent: nil)
+            previous.view.removeFromSuperview()
+            previous.removeFromParent()
         }
+        let keyboard = AirTurnReplacementKeyboardView(
+            services: services,
+            state: state,
+            parameters: parameters,
+            onSizeChange: { [weak self] size in
+                self?.synchronizeKeyboardLayoutSize(size)
+            }
+        ).keyboardState(state)
+        let host = UIHostingController(rootView: AnyView(keyboard))
+        host.view.backgroundColor = .clear
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        addChild(host)
+        view.addSubview(host.view)
+        NSLayoutConstraint.activate([
+            host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            host.view.topAnchor.constraint(equalTo: view.topAnchor),
+            host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        host.didMove(toParent: self)
+        keyboardHostingController = host
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -268,8 +289,8 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
            screen.width > 0, screen.height > 0 {
             return screen
         }
-        let contextSize = state.keyboardContext.screenSize
-        if contextSize.width > 0, contextSize.height > 0 {
+        if let contextSize = state.keyboardContext.screenSize,
+           contextSize.width > 0, contextSize.height > 0 {
             return contextSize
         }
         return CGSize(width: 393, height: 852)
@@ -309,7 +330,7 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
             return inset
         }
         let screenHeight = view.window?.windowScene?.screen.bounds.height
-            ?? state.keyboardContext.screenSize.height
+            ?? resolvedScreenSize(override: nil).height
         // iPhone X and later (portrait) use a home indicator; without an
         // inset the bottom row sits in the rounded corner region.
         return screenHeight >= 812 ? 34 : 0
@@ -345,10 +366,11 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 
         let context = state.keyboardContext
         let windowSize = view.window?.bounds.size
-        var screenSize = windowSize ?? context.screenSize
+        var screenSize = windowSize ?? resolvedScreenSize(override: nil)
         screenSize.width = size.width
         if screenSize.height <= 0 {
-            screenSize.height = max(context.screenSize.width, context.screenSize.height)
+            let fallback = resolvedScreenSize(override: nil)
+            screenSize.height = max(fallback.width, fallback.height)
         }
 
         let orientation: Keyboard.InterfaceOrientation

@@ -105,7 +105,7 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
     }
 
     func testPreparedForHostClearsToolbarHeightAndAppliesBottomInset() {
-        let context = KeyboardContext()
+        let context = KeyboardContext(settings: KeyboardSettings())
         context.deviceTypeForKeyboard = .phone
         context.screenSize = CGSize(width: 402, height: 874)
         context.interfaceOrientation = .portrait
@@ -128,7 +128,7 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
     }
 
     func testPreparedForHostScalesShortLayoutUpToFillHost() {
-        let context = KeyboardContext()
+        let context = KeyboardContext(settings: KeyboardSettings())
         context.deviceTypeForKeyboard = .phone
         context.screenSize = CGSize(width: 402, height: 874)
         context.interfaceOrientation = .portrait
