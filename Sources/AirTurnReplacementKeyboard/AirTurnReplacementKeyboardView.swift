@@ -63,8 +63,16 @@ struct AirTurnReplacementKeyboardView: View {
 #endif
     }
 
+    private var footerInset: CGFloat {
+        let inset = max(0, parameters.bottomSafeAreaInset)
+        // The native portrait footer has ~39pt from the last key to the icon
+        // centre, rather than a full extra 34pt safe-area gap above the control.
+        return keyboardContext.deviceTypeForKeyboard == .phone
+            && !keyboardContext.interfaceOrientation.isLandscape ? inset / 2 : inset
+    }
+
     private var keyboardHeight: CGFloat {
-        max(0, parameters.maximumHeight - controlsHeight - max(0, parameters.bottomSafeAreaInset))
+        max(0, parameters.maximumHeight - controlsHeight - footerInset)
     }
 
     private var layout: KeyboardLayout {
@@ -73,7 +81,10 @@ struct AirTurnReplacementKeyboardView: View {
         // to UIKit's fixed-height in-app keyboard host.
         return Self.layoutForSeparateControls(baseLayout)
         .preparedForHost(
-            hostHeight: keyboardHeight,
+            // KeyboardView adds the autocomplete toolbar outside KeyboardLayout.
+            // Reserve it separately so it cannot extend under the dismiss bar.
+            hostHeight: max(0, keyboardHeight - (parameters.enableAutoCorrect
+                ? SystemKeyboardGeometry.autocompleteToolbarHeight : 0)),
             bottomSafeAreaInset: 0,
             includeAutocompleteToolbar: parameters.enableAutoCorrect
         )
@@ -91,13 +102,16 @@ struct AirTurnReplacementKeyboardView: View {
                 toolbar: { parameters in
                     if self.parameters.enableAutoCorrect {
                         parameters.view
+                            .accessibilityIdentifier("AirTurnSuggestions")
                     }
                 }
             )
             .frame(height: keyboardHeight > 0 ? keyboardHeight : nil)
             controls
-                .frame(height: controlsHeight)
-                .padding(.bottom, max(0, parameters.bottomSafeAreaInset))
+                .frame(
+                    height: controlsHeight + footerInset,
+                    alignment: .bottom
+                )
         }
         // Fill the UIKit host so scaled key rows aren't taller than KK's
         // intrinsic background (which stays at the natural ~216pt size).
@@ -141,10 +155,14 @@ struct AirTurnReplacementKeyboardView: View {
                     if keyboardContext.keyboardType == .emojis {
                         Text("ABC").font(.system(size: 17))
                     } else {
-                        Image(systemName: "face.smiling")
+                        Image.keyboardEmoji
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 27, height: 27)
                     }
                 }
                 .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
             }
             .accessibilityLabel(keyboardContext.keyboardType == .emojis ? "Alphabetic Keyboard" : "Emoji Keyboard")
             .accessibilityIdentifier("AirTurnEmojiKeyboard")
@@ -154,7 +172,7 @@ struct AirTurnReplacementKeyboardView: View {
         .font(.system(size: 25))
         .foregroundStyle(.primary)
         .buttonStyle(.plain)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 21)
     }
 }
 

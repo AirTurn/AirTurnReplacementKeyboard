@@ -151,8 +151,8 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
             bottomSafeAreaInset: 34,
             includeAutocompleteToolbar: false
         )
-        // Classic 216 key rows + 34 home indicator + 41 modern chrome = 291.
-        XCTAssertEqual(height, 291, accuracy: 0.1)
+        // Classic 216 key rows + 34 home indicator + 24 modern chrome = 274.
+        XCTAssertEqual(height, 274, accuracy: 0.1)
     }
 
     func testSystemKeyboardGeometryIncludesAutocompleteToolbar() {

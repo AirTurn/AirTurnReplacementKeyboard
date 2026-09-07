@@ -24,7 +24,10 @@ KeyboardKit 10.
 
 Create and present `AirTurnReplacementKeyboardViewController` as an input view
 controller. Set `enableAutoCorrect` to show or hide the autocomplete toolbar, and
-set `keyboardLocale` to choose the initial locale.
+set `keyboardLocale` to choose the initial locale. The distributed Swift and
+Objective-C examples enable autocomplete and its suggestion bar. Integrators
+can opt in with `enableAutoCorrect = true`; the wrapper's default remains false.
+Changing that option after presentation updates the host height as well.
 
 When AirTurn embeds the controller's view directly, the keyboard observes its
 actual hosted size and keeps KeyboardKit's screen-size and orientation context in
@@ -35,7 +38,9 @@ metrics to fill that host while keeping the bottom row clear of the home
 indicator. No application-facing API changed for this behavior.
 
 The Pro keyboard places globe and emoji controls below the key rows, above the
-home indicator. Tap the globe to cycle enabled languages; hold it to open
+home indicator. The footer uses KeyboardKit's native-style emoji image and is
+calibrated to the iPhone 17 Pro portrait reference, including its spacing from
+the last key row. Tap the globe to cycle enabled languages; hold it to open
 KeyboardKit's language menu. The emoji control opens KeyboardKit's emoji grid
 and changes to ABC to return to letters. KeyboardKit's small emoji metrics leave
 room for this footer. The Standard product remains an English keyboard.
