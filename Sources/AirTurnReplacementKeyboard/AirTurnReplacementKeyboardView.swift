@@ -27,12 +27,12 @@ private struct AirTurnReplacementKeyboardSizePreferenceKey: PreferenceKey {
 /// KeyboardKit supports.
 ///
 /// The emoji grid has its own sizing, independent of `KeyboardLayout`. Use
-/// KeyboardKit's small emoji metrics to leave room for the lower controls.
+/// KeyboardKit's small emoji metrics with an explicit grid height to use the
+/// available key area while leaving room for the lower controls.
 /// App-hosted UI tests verify emoji insertion and the return to letters.
 ///
-/// KeyboardKit's built-in background tracks the layout's natural height, so
-/// when rows are scaled up this view also draws an explicit full-bleed
-/// `Color.keyboardBackground` behind the host.
+/// The host owns a single full-bleed `Color.keyboardBackground`, instead of
+/// KeyboardKit's intrinsic background, so it matches the in-app keyboard bounds.
 struct AirTurnReplacementKeyboardView: View {
     let services: KeyboardServices
     let state: KeyboardState
@@ -98,7 +98,14 @@ struct AirTurnReplacementKeyboardView: View {
                 buttonContent: { $0.view },
                 buttonView: { $0.view },
                 collapsedView: { $0.view },
-                emojiKeyboard: { $0.view.emojiKeyboardSizes(.small) },
+                emojiKeyboard: {
+                    $0.view
+                        .emojiKeyboardSizes(.small)
+                        .frame(height: keyboardHeight > 0 ? max(0, keyboardHeight - (
+                            parameters.enableAutoCorrect
+                                ? SystemKeyboardGeometry.autocompleteToolbarHeight : 0
+                        )) : nil)
+                },
                 toolbar: { parameters in
                     if self.parameters.enableAutoCorrect {
                         parameters.view
@@ -106,7 +113,11 @@ struct AirTurnReplacementKeyboardView: View {
                     }
                 }
             )
+            // The full-height host below owns the background. KeyboardKit's
+            // intrinsic rounded background can protrude above the suggestion row.
+            .keyboardViewBackground(.hidden)
             .frame(height: keyboardHeight > 0 ? keyboardHeight : nil)
+            .padding(.horizontal, 6)
             controls
                 .frame(
                     height: controlsHeight + footerInset,
