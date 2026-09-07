@@ -9,10 +9,10 @@ enum SystemKeyboardGeometry {
     /// keyboard frames when predictive text is visible.
     static let autocompleteToolbarHeight: CGFloat = 45
 
-    /// Extra vertical chrome modern Face ID phones add above the classic
-    /// 216pt / 226pt key-row heights when reporting
-    /// `UIKeyboardFrameEndUserInfoKey` (portrait).
-    private static let modernPortraitChrome: CGFloat = 41
+    /// Additional space above the classic 216pt / 226pt key rows in an
+    /// in-app portrait host, calibrated against the native iPhone 17 Pro
+    /// screenshot together with the footer's icon-to-key spacing.
+    private static let modernPortraitChrome: CGFloat = 24
 
     /// Extra vertical chrome Face ID phones add in landscape beyond classic
     /// 162pt / 171pt key-row heights.

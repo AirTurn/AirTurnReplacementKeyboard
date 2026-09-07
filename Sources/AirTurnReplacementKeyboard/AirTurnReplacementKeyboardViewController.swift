@@ -29,7 +29,10 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 
     @objc(enableAutoCorrect)
     public var enableAutoCorrect = false {
-        didSet { applyAutocompleteConfiguration() }
+        didSet {
+            applyAutocompleteConfiguration()
+            if isViewLoaded { updateHostGeometryParameters() }
+        }
     }
 
     @objc(keyboardLocale)
@@ -485,6 +488,7 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
 
     private func applyAutocompleteConfiguration() {
         viewParameters.enableAutoCorrect = enableAutoCorrect
+        state.autocompleteSettings.isToolbarEnabled = enableAutoCorrect
         state.autocompleteSettings.isAutocompleteEnabled = enableAutoCorrect
         state.autocompleteSettings.isAutocorrectEnabled = enableAutoCorrect
     }

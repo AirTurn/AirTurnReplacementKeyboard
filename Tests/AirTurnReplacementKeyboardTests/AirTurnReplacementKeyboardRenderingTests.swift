@@ -65,6 +65,19 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
                 + "overflows the host view's bounds (\(bounds.height)pt)."
         )
 
+        let heightWithoutSuggestions = controller.maximumHeight
+        controller.enableAutoCorrect = true
+        settle(controller)
+        XCTAssertEqual(controller.maximumHeight,
+                       heightWithoutSuggestions + SystemKeyboardGeometry.autocompleteToolbarHeight,
+                       accuracy: 0.5)
+        XCTAssertLessThanOrEqual(deepestVisibleMaxY(in: controller.view),
+                                 controller.view.bounds.height + 0.5,
+                                 "Suggestions and footer must fit inside the keyboard host")
+        controller.enableAutoCorrect = false
+        settle(controller)
+        XCTAssertEqual(controller.maximumHeight, heightWithoutSuggestions, accuracy: 0.5)
+
         let maximumHeightBefore = controller.maximumHeight
         let preferredContentSizeBefore = controller.preferredContentSize
 
