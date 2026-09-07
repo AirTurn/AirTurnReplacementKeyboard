@@ -26,18 +26,9 @@ private struct AirTurnReplacementKeyboardSizePreferenceKey: PreferenceKey {
 /// follow the current iOS keyboard layout and appearance as closely as
 /// KeyboardKit supports.
 ///
-/// KNOWN LIMITATION: `layout.fitted(toHostHeight:)` scales the
-/// alphabetic/numeric key layout to fit `parameters.maximumHeight`, but the
-/// emoji keyboard's own grid does not follow suit. KeyboardKit 10.9.1 renders
-/// that grid through a UIKit-bridged component
-/// (`UIKitPlatformViewHost<PlatformViewRepresentableAdaptor<...>>`, confirmed
-/// via view-hierarchy inspection) with `clipsToBounds == false` that reports
-/// and keeps its own intrinsic height regardless of any SwiftUI-level
-/// constraint applied here — `.frame(height:)`, `.clipped()`, and KeyboardKit's
-/// own `.emojiKeyboardSizes(...)` sizing API were all tried and none of them
-/// changed its measured rendered size. When the emoji grid's natural height
-/// exceeds the host's fixed frame, it can render past the host's bounds. See
-/// `AirTurnReplacementKeyboardRenderingTests` for a reproduction.
+/// The emoji grid has its own sizing, independent of `KeyboardLayout`. Use
+/// KeyboardKit's small emoji metrics to leave room for the lower controls.
+/// App-hosted UI tests verify emoji insertion and the return to letters.
 ///
 /// KeyboardKit's built-in background tracks the layout's natural height, so
 /// when rows are scaled up this view also draws an explicit full-bleed
@@ -64,38 +55,50 @@ struct AirTurnReplacementKeyboardView: View {
         _keyboardContext = ObservedObject(wrappedValue: state.keyboardContext)
     }
 
+    private var controlsHeight: CGFloat {
+#if ATRK_PRO
+        44
+#else
+        0
+#endif
+    }
+
+    private var keyboardHeight: CGFloat {
+        max(0, parameters.maximumHeight - controlsHeight - max(0, parameters.bottomSafeAreaInset))
+    }
+
     private var layout: KeyboardLayout {
         let baseLayout = KeyboardLayout.standard(for: keyboardContext)
-        let bottomInset = max(0, parameters.bottomSafeAreaInset)
-        // Scale into the full host height with the home-indicator clearance
-        // inside KeyboardKit's layout edge insets, so key rows and KK's own
-        // chrome share one vertical box instead of leaving a padded gap
-        // outside the background.
-        return Self.layoutApplyingBottomRowFixesIfNeeded(
-            baseLayout,
-            locales: keyboardContext.locales
-        )
+        // Reserve the footer and home-indicator clearance before fitting keys
+        // to UIKit's fixed-height in-app keyboard host.
+        return Self.layoutForSeparateControls(baseLayout)
         .preparedForHost(
-            hostHeight: max(0, parameters.maximumHeight),
-            bottomSafeAreaInset: bottomInset,
+            hostHeight: keyboardHeight,
+            bottomSafeAreaInset: 0,
             includeAutocompleteToolbar: parameters.enableAutoCorrect
         )
     }
 
     var body: some View {
-        KeyboardView(
-            layout: layout,
-            services: services,
-            buttonContent: { $0.view },
-            buttonView: { $0.view },
-            collapsedView: { $0.view },
-            emojiKeyboard: { $0.view },
-            toolbar: { parameters in
-                if self.parameters.enableAutoCorrect {
-                    parameters.view
+        VStack(spacing: 0) {
+            KeyboardView(
+                layout: layout,
+                services: services,
+                buttonContent: { $0.view },
+                buttonView: { $0.view },
+                collapsedView: { $0.view },
+                emojiKeyboard: { $0.view.emojiKeyboardSizes(.small) },
+                toolbar: { parameters in
+                    if self.parameters.enableAutoCorrect {
+                        parameters.view
+                    }
                 }
-            }
-        )
+            )
+            .frame(height: keyboardHeight > 0 ? keyboardHeight : nil)
+            controls
+                .frame(height: controlsHeight)
+                .padding(.bottom, max(0, parameters.bottomSafeAreaInset))
+        }
         // Fill the UIKit host so scaled key rows aren't taller than KK's
         // intrinsic background (which stays at the natural ~216pt size).
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -115,44 +118,62 @@ struct AirTurnReplacementKeyboardView: View {
             onSizeChange($0)
         }
     }
+
+    private var controls: some View {
+        HStack(spacing: 8) {
+            if keyboardContext.locales.count > 1 {
+                Image(systemName: "globe")
+                    .frame(width: 44, height: 44)
+                    .keyboardLocaleContextMenu {
+                        services.actionHandler.handle(.nextLocale)
+                    }
+                    .accessibilityLabel("Next Locale")
+                    .accessibilityValue(keyboardContext.locale.identifier)
+                    .accessibilityIdentifier("AirTurnNextLocale")
+            }
+#if ATRK_PRO
+            Button {
+                let type: Keyboard.KeyboardType = keyboardContext.keyboardType == .emojis
+                    ? .alphabetic : .emojis
+                services.actionHandler.handle(.keyboardType(type))
+            } label: {
+                Group {
+                    if keyboardContext.keyboardType == .emojis {
+                        Text("ABC").font(.system(size: 17))
+                    } else {
+                        Image(systemName: "face.smiling")
+                    }
+                }
+                .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(keyboardContext.keyboardType == .emojis ? "Alphabetic Keyboard" : "Emoji Keyboard")
+            .accessibilityIdentifier("AirTurnEmojiKeyboard")
+#endif
+            Spacer(minLength: 0)
+        }
+        .font(.system(size: 25))
+        .foregroundStyle(.primary)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+    }
 }
 
 extension AirTurnReplacementKeyboardView {
-    /// Adjusts the bottom row for in-app embedding: swap the system keyboard
-    /// switcher for locale switching when multiple locales are configured, and
-    /// keep an emoji switcher so the row matches a standard iPhone keyboard.
-    internal static func layoutApplyingBottomRowFixesIfNeeded(
-        _ layout: KeyboardLayout,
-        locales: [Locale]
+    /// Keeps language and emoji controls in the footer below the key rows.
+    internal static func layoutForSeparateControls(
+        _ layout: KeyboardLayout
     ) -> KeyboardLayout {
         var result = layout
-        if locales.count > 1 {
-            result.replace(.nextKeyboard, withAction: .nextLocale)
-
-            if !result.hasKey(for: .nextLocale) {
-                result.tryInsertBottomRowAction(.nextLocale, before: .space)
-            }
-        } else {
-            result.remove(.nextKeyboard)
-        }
-
-        // KeyboardKit may omit the emoji switcher when Pro emoji features are
-        // unavailable; still request the key so a licensed emoji keyboard can
-        // surface it, matching the system keyboard's bottom row.
-        if !result.hasKeyboardSwitcher(.emojis), !result.hasKey(for: .keyboardType(.emojis)) {
-            result.tryInsertBottomRowAction(.keyboardType(.emojis), before: .space)
-        }
+        // UIKit supplies these controls outside a keyboard extension. AirTurn
+        // embeds an input view in an app, so render them in our own footer.
+        result.remove(.nextKeyboard)
+        result.remove(.nextLocale)
+        result.remove(.keyboardType(.emojis))
 
         return result
     }
 
-    /// Backward-compatible name used by existing unit tests.
-    internal static func layoutApplyingLocaleKeyFixIfNeeded(
-        _ layout: KeyboardLayout,
-        locales: [Locale]
-    ) -> KeyboardLayout {
-        layoutApplyingBottomRowFixesIfNeeded(layout, locales: locales)
-    }
+
 }
 
 extension KeyboardLayout {

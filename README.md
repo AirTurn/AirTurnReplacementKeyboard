@@ -17,7 +17,8 @@ standard system-like layout and behavior.
 - `AirTurnReplacementKeyboardStandard` provides an English keyboard without
   KeyboardKit Pro features or a license.
 
-Set `AirTurnReplacementKeyboardViewController.keyboardKitProLicenseKey` before
+Bundle your vendor-supplied `KeyboardKit.license` in the main app, or set
+`AirTurnReplacementKeyboardViewController.keyboardKitProLicenseKey` before
 presenting the Pro keyboard. KeyboardKit 6 license keys are not compatible with
 KeyboardKit 10.
 
@@ -33,19 +34,27 @@ KeyboardKit's shorter natural ~216pt layout), then scales standard key-row
 metrics to fill that host while keeping the bottom row clear of the home
 indicator. No application-facing API changed for this behavior.
 
-The emoji keyboard is sized differently: KeyboardKit's emoji grid isn't governed
-by the same layout fitting and can be taller than the alphabetic keyboard, as it
-is on the real system keyboard. Rather than clip it, the controller grows its
-`preferredContentSize` to request more room from UIKit when the emoji keyboard
-needs it, and returns to the alphabetic keyboard's height when switching back.
-Whether the host visibly resizes end-to-end depends on the surrounding app's
-input view installation reacting to that request.
+The Pro keyboard places globe and emoji controls below the key rows, above the
+home indicator. Tap the globe to cycle enabled languages; hold it to open
+KeyboardKit's language menu. The emoji control opens KeyboardKit's emoji grid
+and changes to ABC to return to letters. KeyboardKit's small emoji metrics leave
+room for this footer. The Standard product remains an English keyboard.
+
+The upstream demo is a keyboard extension; UIKit supplies its system globe and
+dictation strip. An in-app input view does not receive that strip, so this wrapper
+provides the lower language and emoji controls using KeyboardKit's public locale
+menu and action handler. It does not switch to a system keyboard extension.
+
+The AirTurn SDK examples include a bundle-ID-bound Silver license. App-hosted
+UI tests verify French AZERTY, German ü, Spanish ñ, language-menu selection,
+emoji insertion, and returning to letters. Integrators with another bundle ID
+need their own license.
 
 ## Running tests
 
 The package's unit tests cover locale resolution (`configuredKeyboardKitLocales`,
-`defaultLocale`), the locale-switch key layout fix
-(`AirTurnReplacementKeyboardView.layoutApplyingLocaleKeyFixIfNeeded`), that the
+`defaultLocale`), removal of duplicate language/emoji controls from the key rows
+(`AirTurnReplacementKeyboardView.layoutForSeparateControls`), that the
 alphabetic keyboard fits its host, and the emoji keyboard's resize-request
 behavior (`synchronizeKeyboardLayoutSize`). Run them with the bundled script,
 which picks a booted or available iPhone simulator automatically:

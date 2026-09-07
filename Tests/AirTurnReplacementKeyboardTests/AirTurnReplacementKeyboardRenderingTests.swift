@@ -12,17 +12,9 @@ import KeyboardKit
 /// this, to never report a non-zero size in a headless XCTest-hosted `UIWindow` — so a
 /// test relying on it would never actually exercise the code under test.
 ///
-/// The emoji keyboard is a different case from the alphabetic one above: KeyboardKit's
-/// emoji grid renders through a UIKit-bridged component that ignores every SwiftUI-level
-/// height constraint (see the "KNOWN LIMITATION" doc comment on
-/// `AirTurnReplacementKeyboardView`), so instead of clipping it,
-/// `synchronizeKeyboardLayoutSize` grows `preferredContentSize` to ask UIKit for more
-/// room when it renders taller than the current host — matching how Apple's own system
-/// keyboard is itself taller in emoji mode. Whether UIKit and `AirTurnKeyboardManager`
-/// actually honor that request end-to-end can only be verified with a real keyboard
-/// installation (`reloadInputViews`) inside a running app, which is out of reach for a
-/// package-level unit test — that needs a UI test in the example app, or manual
-/// on-device verification.
+/// Emoji sizing is independent of KeyboardLayout. These tests exercise resize
+/// reporting; app-hosted UI tests cover the licensed emoji grid, its lower
+/// controls, and switching back to alphabetic input.
 ///
 /// All scenarios share a single hosted controller instance. KeyboardKit's setup
 /// performs an async license lookup per controller instance that this sandboxed
