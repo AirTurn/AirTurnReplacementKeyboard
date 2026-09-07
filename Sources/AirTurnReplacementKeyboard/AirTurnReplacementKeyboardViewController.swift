@@ -93,8 +93,10 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
             switch result {
             case .success(let license):
                 NSLog(
-                    "AirTurnReplacementKeyboard: KeyboardKit setup succeeded (license=%@)",
-                    license.map { String(describing: $0) } ?? "nil"
+                    "AirTurnReplacementKeyboard: KeyboardKit setup succeeded (license=%@, tier=%@, features=%@)",
+                    license == nil ? "none" : "validated",
+                    license?.tier.name ?? "none",
+                    license?.featureIds.joined(separator: ", ") ?? "none"
                 )
             case .failure(let error):
                 NSLog(
