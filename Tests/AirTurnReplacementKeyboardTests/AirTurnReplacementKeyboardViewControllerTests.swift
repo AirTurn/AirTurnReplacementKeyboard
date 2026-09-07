@@ -61,7 +61,7 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
         XCTAssertEqual(fromFirst.identifier, "fr_FR")
     }
 
-    func testLayoutApplyingLocaleKeyFixIfNeededInsertsNextLocaleBeforeSpace() {
+    func testFooterControlsLeaveSpaceRowUnchanged() {
         let layout = KeyboardLayout(itemRows: [
             [
                 KeyboardLayoutItem(
@@ -71,17 +71,14 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
             ]
         ])
 
-        let updated = AirTurnReplacementKeyboardView.layoutApplyingLocaleKeyFixIfNeeded(
-            layout,
-            locales: [Locale(identifier: "en_US"), Locale(identifier: "de_DE")]
-        )
+        let updated = AirTurnReplacementKeyboardView.layoutForSeparateControls(layout)
 
         let actions = updated.itemRows[0].map(\.action)
-        XCTAssertEqual(actions, [.nextLocale, .keyboardType(.emojis), .space])
-        XCTAssertTrue(updated.hasKey(for: .keyboardType(.emojis)))
+        XCTAssertEqual(actions, [.space])
+        XCTAssertFalse(updated.hasKey(for: .keyboardType(.emojis)))
     }
 
-    func testLayoutApplyingLocaleKeyFixIfNeededConvertsOrRemovesExistingNextKeyboard() {
+    func testFooterControlsRemoveSystemSwitcherFromKeyRows() {
         let layout = KeyboardLayout(itemRows: [
             [
                 KeyboardLayoutItem(
@@ -95,12 +92,9 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
             ]
         ])
 
-        let updated = AirTurnReplacementKeyboardView.layoutApplyingLocaleKeyFixIfNeeded(
-            layout,
-            locales: [Locale(identifier: "en_US"), Locale(identifier: "de_DE")]
-        )
+        let updated = AirTurnReplacementKeyboardView.layoutForSeparateControls(layout)
 
-        XCTAssertTrue(updated.hasKey(for: .nextLocale))
+        XCTAssertFalse(updated.hasKey(for: .nextLocale))
         XCTAssertFalse(updated.hasKey(for: .nextKeyboard))
     }
 
@@ -194,9 +188,13 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
         XCTAssertEqual(height, 216, accuracy: 0.1)
     }
 
-    func testLayoutBottomRowKeepsEmojiSwitcher() {
+    func testFooterOwnsEmojiSwitcher() {
         let layout = KeyboardLayout(itemRows: [
             [
+                KeyboardLayoutItem(
+                    action: .keyboardType(.emojis),
+                    size: KeyboardLayoutItem.Size(width: .input, height: 0)
+                ),
                 KeyboardLayoutItem(
                     action: .keyboardType(.numeric),
                     size: KeyboardLayoutItem.Size(width: .input, height: 0)
@@ -208,11 +206,8 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
             ]
         ])
 
-        let updated = AirTurnReplacementKeyboardView.layoutApplyingBottomRowFixesIfNeeded(
-            layout,
-            locales: [Locale(identifier: "en_US")]
-        )
+        let updated = AirTurnReplacementKeyboardView.layoutForSeparateControls(layout)
 
-        XCTAssertTrue(updated.hasKey(for: .keyboardType(.emojis)))
+        XCTAssertFalse(updated.hasKey(for: .keyboardType(.emojis)))
     }
 }
