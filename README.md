@@ -110,3 +110,7 @@ The package's minimum deployment target has changed from iOS 13 to iOS 16. The
 current implementation uses KeyboardKit's standard keyboard directly instead of
 the old demo-derived appearance, autocomplete, layout-provider, and action-handler
 implementations.
+
+The upstream `11.0.0-dp.1` tag was removed on 7 September 2026. This branch pins
+its previously tested commit `9b60f93ef23006fb9e0b1741582ace3f97cff7ee` directly;
+the corresponding preview-1 binary remains available.
