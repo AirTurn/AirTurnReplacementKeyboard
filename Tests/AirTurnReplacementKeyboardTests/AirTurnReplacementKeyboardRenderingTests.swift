@@ -145,7 +145,12 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
         self.hostViewController = host
         self.replacementController = controller
 
-        controller.view.frame = CGRect(x: 0, y: 0, width: 393, height: hostHeight)
+        // Dock the host at the bottom of the screen like an input view. Before
+        // iOS 26, UIHostingController insets content by the top safe area, so a
+        // host under the status bar would push the keys out of its bounds.
+        controller.view.frame = CGRect(
+            x: 0, y: screenSize.height - hostHeight, width: 393, height: hostHeight
+        )
         host.addChild(controller)
         host.view.addSubview(controller.view)
         controller.didMove(toParent: host)

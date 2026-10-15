@@ -144,14 +144,33 @@ struct AirTurnReplacementKeyboardView: View {
         }
     }
 
+    @ViewBuilder
+    private var nextLocaleControl: some View {
+        if #available(iOS 26, *) {
+            Image(systemName: "globe")
+                .frame(width: 44, height: 44)
+                .keyboardLocaleContextMenu {
+                    services.actionHandler.handle(.nextLocale)
+                }
+        } else {
+            // Before iOS 26 the menu's platform button extends into the bottom
+            // safe area and draws its label at the top of that larger frame,
+            // above the emoji control. Draw the icon outside the menu instead.
+            Image(systemName: "globe")
+                .frame(width: 44, height: 44)
+                .opacity(0)
+                .keyboardLocaleContextMenu {
+                    services.actionHandler.handle(.nextLocale)
+                }
+                .frame(width: 44, height: 44)
+                .background { Image(systemName: "globe") }
+        }
+    }
+
     private var controls: some View {
         HStack(spacing: 8) {
             if keyboardContext.locales.count > 1 {
-                Image(systemName: "globe")
-                    .frame(width: 44, height: 44)
-                    .keyboardLocaleContextMenu {
-                        services.actionHandler.handle(.nextLocale)
-                    }
+                nextLocaleControl
                     .accessibilityLabel("Next Locale")
                     .accessibilityValue(keyboardContext.locale.identifier)
                     .accessibilityIdentifier("AirTurnNextLocale")
