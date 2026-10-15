@@ -47,7 +47,7 @@ final class AirTurnReplacementKeyboardRenderingTests: XCTestCase {
         let controller = makeHostedController()
         settle(controller)
 
-        // The dp.1 compatibility host must replace its child when KeyboardKit
+        // The KeyboardKit 11 hosting wrapper must replace its child when KeyboardKit
         // asks to rebuild the keyboard, rather than stacking SwiftUI hosts.
         let originalHost = controller.children.first
         XCTAssertEqual(controller.children.count, 1)

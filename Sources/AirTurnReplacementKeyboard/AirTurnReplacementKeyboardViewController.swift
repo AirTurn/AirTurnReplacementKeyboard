@@ -123,7 +123,7 @@ public final class AirTurnReplacementKeyboardViewController: KeyboardInputViewCo
     public override func viewWillSetupKeyboardView() {
         let parameters = viewParameters
         updateHostGeometryParameters()
-        // KeyboardKit 11 dp.1 removes setupKeyboardView without exposing
+        // KeyboardKit 11 removes setupKeyboardView without exposing
         // another hosting helper. Embed our SwiftUI view using public UIKit
         // APIs and inject the complete KeyboardKit state explicitly.
         if let previous = keyboardHostingController {

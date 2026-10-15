@@ -69,7 +69,7 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
                     size: KeyboardLayoutItem.Size(width: .input, height: 0)
                 )
             ]
-        ])
+        ], configuration: .standardPhone)
 
         let updated = AirTurnReplacementKeyboardView.layoutForSeparateControls(layout)
 
@@ -90,7 +90,7 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
                     size: KeyboardLayoutItem.Size(width: .input, height: 0)
                 )
             ]
-        ])
+        ], configuration: .standardPhone)
 
         let updated = AirTurnReplacementKeyboardView.layoutForSeparateControls(layout)
 
@@ -204,7 +204,7 @@ final class AirTurnReplacementKeyboardViewControllerTests: XCTestCase {
                     size: KeyboardLayoutItem.Size(width: .input, height: 0)
                 )
             ]
-        ])
+        ], configuration: .standardPhone)
 
         let updated = AirTurnReplacementKeyboardView.layoutForSeparateControls(layout)
 

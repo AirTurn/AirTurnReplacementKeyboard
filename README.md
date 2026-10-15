@@ -4,40 +4,23 @@ A replacement keyboard for apps that must keep an on-screen keyboard available w
 an AirTurn or another external keyboard is connected. The keyboard uses KeyboardKit's
 standard system-like layout and behavior.
 
-## KeyboardKit 11 developer preview
-
-This branch evaluates `11.0.0-dp.1` (upstream revision
-`9b60f93ef23006fb9e0b1741582ace3f97cff7ee`) without changing the v10 main branch.
-The dependency requires Swift 6.2 / Xcode 26 or later. iOS 16 remains the minimum.
-
-The preview removes `setupKeyboardView` from its public interface. The wrapper
-therefore embeds a `UIHostingController`, injects `.keyboardState(state)`, and
-replaces the existing host on redraw. It also handles the now-optional
-`KeyboardContext.screenSize`. Test contexts pass `KeyboardSettings` explicitly.
-
-All 13 package tests pass, including rendering and repeated hosting setup.
-With the replacement Silver license, all four SDK example UI tests pass on
-iOS 26.5 and iOS 27, including international and emoji input.
-
-[Official preview announcement](https://keyboardkit.com/blog/2026/08/28/keyboardkit-11-developer-preview)
-
 ## Requirements
 
 - iOS 16 or later
 - Xcode 26 or later (Swift 6.2)
-- KeyboardKit 11.0.0-dp.1
+- KeyboardKit 11.0.3
 
 ## Products
 
 - `AirTurnReplacementKeyboard` supports every locale provided by KeyboardKit and
-  requires a current KeyboardKit 10 license.
+  requires a current KeyboardKit license.
 - `AirTurnReplacementKeyboardStandard` provides an English keyboard without
   KeyboardKit Pro features or a license.
 
 Bundle your vendor-supplied `KeyboardKit.license` in the main app, or set
 `AirTurnReplacementKeyboardViewController.keyboardKitProLicenseKey` before
 presenting the Pro keyboard. KeyboardKit 6 license keys are not compatible with
-KeyboardKit 10.
+KeyboardKit 10 or later.
 
 Create and present `AirTurnReplacementKeyboardViewController` as an input view
 controller. Set `enableAutoCorrect` to show or hide the autocomplete toolbar, and
@@ -129,6 +112,17 @@ not verify the example app's full input-view installation or that its host
 honors emoji resize requests. Those still require app-hosted UI tests or manual
 device verification.
 
+## Upgrading from KeyboardKit 10
+
+This release updates the dependency to KeyboardKit 11.0.3, which requires Swift
+6.2 / Xcode 26 or later. iOS 16 remains the minimum, and the public controller
+API is unchanged.
+
+KeyboardKit 11 removes `setupKeyboardView` from its public interface. The wrapper
+therefore embeds a `UIHostingController`, injects `.keyboardState(state)`, and
+replaces the existing host on redraw. It also handles the now-optional
+`KeyboardContext.screenSize`.
+
 ## Upgrading from KeyboardKit 6
 
 KeyboardKit 10 combines the former KeyboardKit and KeyboardKitPro packages. Remove
@@ -142,7 +136,3 @@ The package's minimum deployment target has changed from iOS 13 to iOS 16. The
 current implementation uses KeyboardKit's standard keyboard directly instead of
 the old demo-derived appearance, autocomplete, layout-provider, and action-handler
 implementations.
-
-The upstream `11.0.0-dp.1` tag was removed on 7 September 2026. This branch pins
-its previously tested commit `9b60f93ef23006fb9e0b1741582ace3f97cff7ee` directly;
-the corresponding preview-1 binary remains available.
