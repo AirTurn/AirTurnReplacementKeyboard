@@ -1,0 +1,70 @@
+name: iOS keyboard tests
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-keyboard-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit and rendering tests (iOS simulator)
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select released Xcode 26
+        run: |
+          python3 - <<'PYCODE'
+          import glob, os, re
+          candidates = []
+          for path in glob.glob('/Applications/Xcode_26*.app'):
+              match = re.fullmatch(r'/Applications/Xcode_(26(?:\.\d+)*)\.app', path)
+              if match:
+                  candidates.append((tuple(map(int, match.group(1).split('.'))), path))
+          if not candidates:
+              raise SystemExit('No released Xcode 26 installation found')
+          path = max(candidates)[1] + '/Contents/Developer'
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('DEVELOPER_DIR=' + path + '\n')
+          print('Selected ' + path)
+          PYCODE
+
+      - name: Record Xcode and available simulators
+        run: |
+          mkdir -p "$RUNNER_TEMP/keyboard-test-results"
+          xcodebuild -version | tee "$RUNNER_TEMP/keyboard-test-results/xcode-version.txt"
+          xcrun simctl list devices available | tee "$RUNNER_TEMP/keyboard-test-results/simulators.txt"
+
+      - name: Run package tests on an iPhone simulator
+        run: |
+          set -o pipefail
+          sh scripts/test.sh "" \
+            -derivedDataPath "$RUNNER_TEMP/keyboard-derived-data" \
+            -resultBundlePath "$RUNNER_TEMP/keyboard-test-results/KeyboardTests.xcresult" \
+            -parallel-testing-enabled NO \
+            -maximum-concurrent-test-simulator-destinations 1 \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 300 \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/keyboard-test-results/xcodebuild.log"
+
+      - name: Upload test results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyboard-test-results
+          path: ${{ runner.temp }}/keyboard-test-results/
+          if-no-files-found: warn
+          retention-days: 14
